@@ -1,0 +1,2771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ウォール・ローゼ</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='2' y='2' width='60' height='60' rx='10' fill='%23d90429' stroke='%23141416' stroke-width='4'/%3E%3Ctext x='32' y='46' font-family='sans-serif' font-weight='900' font-size='38' fill='%23ffffff' text-anchor='middle'%3E%E3%83%AD%3C/text%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+  <!-- Local Comic Fonts: Komika Axis & Komika Text Family -->
+  <style>
+    @font-face {
+      font-family: 'Komika Axis';
+      font-style: normal;
+      font-weight: 400;
+      src: url('fonts/KOMIKAX_.woff') format('woff');
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Komika Text';
+      font-style: normal;
+      font-weight: 400;
+      src: url('fonts/KOMTXT__.woff') format('woff');
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Komika Text';
+      font-style: italic;
+      font-weight: 400;
+      src: url('fonts/KOMTXTI_.woff') format('woff');
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Komika Text';
+      font-style: normal;
+      font-weight: 700;
+      src: url('fonts/KOMTXTB_.woff') format('woff');
+      font-display: swap;
+    }
+  </style>
+
+  <style>
+    /* =========================================================================
+       MANGA / COMIC THEME SYSTEM
+       - Default: Tankōbon Paper (Light)
+       - Alternate: Manga Noir (Dark)
+       ========================================================================= */
+
+    :root {
+      /* Locked-in: 100% Komika Family Everywhere */
+      --font-display: 'Komika Axis', sans-serif;
+      --font-ui: 'Komika Text', sans-serif;
+      --font-tech: 'Komika Text', sans-serif;
+
+      /* TANKŌBON PAPER THEME (Default) */
+      --bg-canvas: #f8f6f0;
+      --bg-panel: #ffffff;
+      --bg-panel-alt: #f3efe6;
+
+      --ink-border: #141416;
+      --ink-border-soft: #383840;
+      --ink-shadow: #141416;
+
+      --text-main: #141416;
+      --text-muted: #4e4e58;
+      --text-dim: #7a7a88;
+
+      --accent-red: #d90429;
+      --accent-yellow: #ffb703;
+      --accent-blue: #0077b6;
+
+      --status-online-bg: #d8f3dc;
+      --status-online-text: #1b4332;
+      --status-offline-bg: #e9ecef;
+      --status-offline-text: #6c757d;
+
+      --screentone-dot: rgba(20, 20, 22, 0.14);
+      --comic-paper-grain: rgba(0, 0, 0, 0.02);
+    }
+
+    /* MANGA NOIR THEME (Dark Mode) */
+    body[data-theme="manga-noir"] {
+      --bg-canvas: #121215;
+      --bg-panel: #1a1a20;
+      --bg-panel-alt: #15151a;
+
+      --ink-border: #e2e2e8;
+      --ink-border-soft: #888898;
+      --ink-shadow: #000000;
+
+      --text-main: #f5f5f7;
+      --text-muted: #a6a6b5;
+      --text-dim: #707080;
+
+      --accent-red: #ef233c;
+      --accent-yellow: #ffb703;
+      --accent-blue: #48cae4;
+
+      --status-online-bg: #1b4332;
+      --status-online-text: #95d5b2;
+      --status-offline-bg: #2a2a34;
+      --status-offline-text: #888898;
+
+      --screentone-dot: rgba(240, 240, 245, 0.12);
+      --comic-paper-grain: rgba(255, 255, 255, 0.015);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      font-family: var(--font-ui);
+      min-height: 100vh;
+      line-height: 1.5;
+      position: relative;
+      background-image: 
+        radial-gradient(var(--screentone-dot) 1.2px, transparent 1.2px),
+        linear-gradient(to right, var(--comic-paper-grain) 1px, transparent 1px);
+      background-size: 8px 8px, 16px 16px;
+      transition: background-color 0.2s ease, color 0.2s ease;
+      overflow-x: clip;
+    }
+
+    .comic-wrapper {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 24px 20px 80px 20px;
+    }
+
+    /* =========================================================================
+       HEADER BANNER (Sticky title + Server IP, theme toggle)
+       ========================================================================= */
+    .manga-header {
+      position: sticky;
+      top: 16px;
+      z-index: 1000;
+      background: var(--bg-panel);
+      border: 3.5px solid var(--ink-border);
+      box-shadow: 6px 6px 0px var(--ink-shadow);
+      padding: 16px 24px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      transition: top 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .manga-logo-stamp {
+      background: var(--accent-red);
+      color: #ffffff;
+      border: 2.5px solid var(--ink-border);
+      width: 46px;
+      height: 46px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 3px 3px 0px var(--ink-shadow);
+      flex-shrink: 0;
+      font-family: 'Yu Gothic', 'Hiragino Sans', 'Meiryo', 'Noto Sans JP', sans-serif;
+      font-size: 1.65rem;
+      font-weight: 900;
+      line-height: 1;
+      user-select: none;
+      letter-spacing: -1px;
+    }
+
+    .brand-text h1 {
+      font-family: var(--font-display);
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      line-height: 1.2;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .manga-ver-badge {
+      font-family: var(--font-display);
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: var(--accent-yellow);
+      color: #141416;
+      border: 2px solid var(--ink-border);
+      box-shadow: 2px 2px 0px var(--ink-shadow);
+      padding: 2px 8px;
+      line-height: 1.1;
+      text-transform: uppercase;
+      user-select: none;
+      transform: rotate(3deg);
+      display: inline-block;
+      margin-left: 6px;
+      transition: transform 0.15s ease;
+    }
+
+    .manga-ver-badge:hover {
+      transform: rotate(-2deg) scale(1.05);
+    }
+
+    .brand-sub {
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Comic Action Buttons */
+    .comic-btn {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 9px 14px;
+      background: var(--bg-panel);
+      color: var(--text-main);
+      border: 2.5px solid var(--ink-border);
+      box-shadow: 3px 3px 0px var(--ink-shadow);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      text-decoration: none;
+      transition: transform 0.08s ease, box-shadow 0.08s ease;
+      user-select: none;
+    }
+
+    .comic-btn.icon-only {
+      padding: 9px 11px;
+    }
+
+    .comic-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0px var(--ink-shadow);
+    }
+
+    .comic-btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0px var(--ink-shadow);
+    }
+
+    .comic-btn-red {
+      background: var(--accent-red);
+      color: #ffffff;
+    }
+
+    .comic-btn-yellow {
+      background: var(--accent-yellow);
+      color: #141416;
+    }
+
+    .comic-btn-blue {
+      background: var(--accent-blue);
+      color: #ffffff;
+    }
+
+    .comic-btn-black,
+    .comic-btn-dark {
+      background: #141416;
+      color: #ffffff;
+    }
+
+    body[data-theme="manga-noir"] .comic-btn-black,
+    body[data-theme="manga-noir"] .comic-btn-dark {
+      background: #23232a;
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .comic-btn svg {
+      width: 15px;
+      height: 15px;
+      stroke-width: 2.5;
+      fill: none;
+      stroke: currentColor;
+    }
+
+    /* =========================================================================
+       4 TELEMETRY STRIP CELLS (Peers, CPU, RAM, Network Speed)
+       ========================================================================= */
+    .telemetry-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 960px) {
+      .telemetry-strip {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .telemetry-strip {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .telemetry-cell {
+      background: var(--bg-panel);
+      border: 2.5px solid var(--ink-border);
+      box-shadow: 4px 4px 0px var(--ink-shadow);
+      padding: 12px 16px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 78px;
+    }
+
+    .telemetry-cell::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 12px;
+      height: 12px;
+      background: repeating-linear-gradient(45deg, var(--ink-border), var(--ink-border) 2px, transparent 2px, transparent 4px);
+    }
+
+    .cell-title {
+      font-family: var(--font-display);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+    }
+
+    .cell-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .cell-stat {
+      font-family: var(--font-tech);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: inline-flex;
+      align-items: baseline;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .cell-unit {
+      font-size: 0.80rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .cell-badge {
+      font-family: var(--font-display);
+      font-size: 0.60rem;
+      font-weight: 700;
+      border: 1.5px solid var(--ink-border);
+      padding: 3px 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      line-height: 1;
+      box-shadow: 1.5px 1.5px 0px var(--ink-shadow);
+    }
+
+    .cell-badge.badge-green {
+      background: var(--status-online-bg);
+      color: var(--status-online-text);
+    }
+
+    .cell-badge.badge-yellow {
+      background: var(--accent-yellow);
+      color: #141416;
+    }
+
+    .cell-badge.badge-red {
+      background: var(--accent-red);
+      color: #ffffff;
+    }
+
+    .cell-badge.badge-gray {
+      background: var(--status-offline-bg);
+      color: var(--status-offline-text);
+    }
+
+    .speed-flow {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .telemetry-arrow {
+      width: 10px;
+      height: 10px;
+      fill: currentColor;
+      flex-shrink: 0;
+      display: block;
+    }
+
+    .badge-dot {
+      opacity: 0.6;
+      font-size: 0.70rem;
+    }
+
+    .badge-unit {
+      font-size: 0.56rem;
+      margin-left: 1px;
+    }
+
+    /* =========================================================================
+       CLEAN TAB NAVIGATION
+       ========================================================================= */
+    .clean-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 24px;
+      border-bottom: 3.5px solid var(--ink-border);
+      padding-bottom: 12px;
+    }
+
+    .tab-btn {
+      font-family: var(--font-display);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 18px;
+      background: var(--bg-panel);
+      color: var(--text-muted);
+      border: 2.5px solid var(--ink-border);
+      box-shadow: 3px 3px 0px var(--ink-shadow);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.12s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0px var(--ink-shadow);
+    }
+
+    .tab-btn.active {
+      background: var(--accent-red);
+      color: #ffffff;
+      transform: translate(-2px, -2px);
+      box-shadow: 5px 5px 0px var(--ink-shadow);
+    }
+
+    .tab-btn svg {
+      width: 17px;
+      height: 17px;
+      stroke-width: 2.5;
+      fill: none;
+      stroke: currentColor;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: mangaFade 0.15s ease-out;
+    }
+
+    @keyframes mangaFade {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Optical vertical centering for plus icon with uppercase display font */
+    .btn-plus-icon {
+      font-size: 1.15rem;
+      line-height: 1;
+      font-weight: 700;
+      display: inline-block;
+      transform: translateY(-2px);
+      margin-right: 2px;
+      vertical-align: middle;
+    }
+
+    /* =========================================================================
+       PEERS GRID
+       ========================================================================= */
+    .manga-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .manga-panel {
+      background: var(--bg-panel);
+      border: 3.5px solid var(--ink-border);
+      box-shadow: 6px 6px 0px var(--ink-shadow);
+      padding: 20px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .manga-panel:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 8px 8px 0px var(--ink-shadow);
+    }
+
+    .panel-top-bar {
+      border-bottom: 2.5px solid var(--ink-border);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .panel-meta {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-tag-small {
+      font-family: var(--font-display);
+      font-size: 0.62rem;
+      letter-spacing: 0.8px;
+      color: var(--accent-red);
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .panel-title {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+
+    .panel-device-desc {
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    /* Speech Bubble Status Badge */
+    .speech-badge {
+      font-family: var(--font-display);
+      padding: 4px 10px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      box-shadow: 2px 2px 0px var(--ink-shadow);
+      flex-shrink: 0;
+      white-space: nowrap;
+      letter-spacing: 0.6px;
+      border: 2px solid var(--ink-border);
+    }
+
+    .speech-badge.st-online,
+    .speech-badge.st-active {
+      background: var(--status-online-bg);
+      color: var(--status-online-text);
+    }
+
+    .speech-badge.st-standby {
+      background: #fef08a;
+      color: #713f12;
+    }
+
+    body[data-theme="manga-noir"] .speech-badge.st-standby {
+      background: #362f0a;
+      color: #fde047;
+    }
+
+    .speech-badge.st-stale {
+      background: #fed7aa;
+      color: #7c2d12;
+    }
+
+    body[data-theme="manga-noir"] .speech-badge.st-stale {
+      background: #431407;
+      color: #fdba74;
+    }
+
+    .speech-badge.st-inactive,
+    .speech-badge.st-offline,
+    .speech-badge.st-suspended {
+      background: var(--accent-red);
+      color: #ffffff;
+      border: 2px solid var(--ink-border);
+    }
+
+    body[data-theme="manga-noir"] .speech-badge.st-inactive,
+    body[data-theme="manga-noir"] .speech-badge.st-offline,
+    body[data-theme="manga-noir"] .speech-badge.st-suspended {
+      background: var(--accent-red);
+      color: #ffffff;
+      border: 2px solid var(--ink-border);
+    }
+
+    .speech-badge.st-pending {
+      background: #e0f2fe;
+      color: #0369a1;
+      border: 2px dashed var(--ink-border);
+    }
+
+    body[data-theme="manga-noir"] .speech-badge.st-pending {
+      background: #082f49;
+      color: #7dd3fc;
+    }
+
+    /* SFX Sticker Badge at Top of Card */
+    .sfx-badge {
+      position: absolute;
+      top: -11px;
+      right: 18px;
+      background: var(--accent-yellow);
+      color: #141416;
+      border: 2px solid var(--ink-border);
+      box-shadow: 2px 2px 0px var(--ink-shadow);
+      padding: 2px 8px;
+      font-family: var(--font-display);
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      z-index: 5;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+
+    .sfx-badge.st-active,
+    .sfx-badge.st-online {
+      background: var(--accent-yellow);
+      color: #141416;
+      transform: rotate(3deg);
+    }
+
+    .sfx-badge.st-standby {
+      background: #fde047;
+      color: #713f12;
+      transform: rotate(-1.5deg);
+    }
+
+    .sfx-badge.st-stale {
+      background: #fb923c;
+      color: #141416;
+      transform: rotate(2deg);
+    }
+
+    .sfx-badge.st-inactive,
+    .sfx-badge.st-offline {
+      background: #f87171;
+      color: #141416;
+      transform: rotate(-1.5deg);
+    }
+
+    .sfx-badge.st-pending {
+      background: #bae6fd;
+      color: #0c4a6e;
+      border: 2px dashed var(--ink-border);
+      transform: rotate(1deg);
+    }
+
+    .sfx-badge.st-suspended {
+      background: var(--accent-red);
+      color: #ffffff;
+      transform: rotate(-3deg);
+    }
+
+
+
+    /* Specs List */
+    .specs-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .spec-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: var(--bg-panel-alt);
+      border: 1.5px solid var(--ink-border);
+    }
+
+    .spec-key {
+      font-family: var(--font-ui);
+      font-weight: 700;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .spec-val {
+      font-family: var(--font-tech);
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    /* Action Buttons: Row 1 = 2 buttons, Row 2 = Full width */
+    .card-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-top: 2.5px solid var(--ink-border);
+      padding-top: 14px;
+    }
+
+    .card-actions-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .card-actions .comic-btn {
+      font-size: 0.68rem;
+    }
+
+    /* =========================================================================
+       PROTOCOL CORES
+       ========================================================================= */
+    .core-blueprint-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .core-blueprint {
+      background: var(--bg-panel);
+      border: 3.5px solid var(--ink-border);
+      box-shadow: 6px 6px 0px var(--ink-shadow);
+      padding: 22px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .core-blueprint:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 8px 8px 0px var(--ink-shadow);
+    }
+
+    .blueprint-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      border-bottom: 2.5px solid var(--ink-border);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+
+    .blueprint-header h3 {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      line-height: 1.2;
+    }
+
+    .blueprint-sub {
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin-top: 3px;
+      display: block;
+    }
+
+    .blueprint-desc {
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .blueprint-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 18px;
+      border-top: 2.5px solid var(--ink-border);
+      padding-top: 16px;
+    }
+
+    .blueprint-actions .comic-btn {
+      font-size: 0.72rem;
+      justify-content: center;
+      padding: 10px 12px;
+    }
+
+    @media (max-width: 480px) {
+      .blueprint-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .comic-textarea {
+      width: 100%;
+      height: 380px;
+      background: var(--bg-canvas);
+      border: 2.5px solid var(--ink-border);
+      padding: 14px;
+      font-family: var(--font-tech);
+      font-size: 0.80rem;
+      line-height: 1.55;
+      color: var(--text-main);
+      box-shadow: 3px 3px 0px var(--ink-shadow);
+      resize: vertical;
+      white-space: pre;
+      tab-size: 2;
+      outline: none;
+      box-sizing: border-box;
+    }
+
+    .comic-textarea:focus {
+      border-color: var(--accent-red);
+    }
+
+    .editor-notice {
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* =========================================================================
+       ROUTING & SUBSCRIPTIONS
+       ========================================================================= */
+    .strategy-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    @media (max-width: 900px) {
+      .strategy-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .strategy-panel {
+      background: var(--bg-panel);
+      border: 3.5px solid var(--ink-border);
+      box-shadow: 6px 6px 0px var(--ink-shadow);
+      padding: 22px;
+    }
+
+    .strategy-panel h3 {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .flow-step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+
+    .flow-num {
+      width: 32px;
+      height: 32px;
+      background: var(--accent-red);
+      color: #ffffff;
+      border: 2px solid var(--ink-border);
+      box-shadow: 2px 2px 0px var(--ink-shadow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: 0.90rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .flow-body h4 {
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .flow-body p {
+      font-family: var(--font-ui);
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .yaml-preview-box {
+      background: var(--bg-canvas);
+      border: 2.5px solid var(--ink-border);
+      padding: 14px;
+      font-family: var(--font-tech);
+      font-size: 0.78rem;
+      line-height: 1.55;
+      max-height: 420px;
+      overflow-y: auto;
+      overflow-x: auto;
+      white-space: pre;
+      color: var(--text-main);
+      box-shadow: 3px 3px 0px var(--ink-shadow);
+    }
+
+    /* =========================================================================
+       MODAL DIALOG
+       ========================================================================= */
+    .comic-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(20, 20, 24, 0.75);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .comic-modal-overlay.open {
+      display: flex;
+    }
+
+    .comic-modal {
+      background: var(--bg-panel);
+      border: 4px solid var(--ink-border);
+      box-shadow: 8px 8px 0px var(--ink-shadow);
+      max-width: 620px;
+      width: 100%;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      animation: modalPop 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalPop {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-head {
+      border-bottom: 3px solid var(--ink-border);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-panel-alt);
+    }
+
+    .modal-head h3 {
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .modal-close-btn {
+      background: var(--accent-red);
+      color: #ffffff;
+      border: 2px solid var(--ink-border);
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 2px 2px 0px var(--ink-shadow);
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .modal-foot {
+      border-top: 3px solid var(--ink-border);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      background: var(--bg-panel-alt);
+    }
+
+    .awg-toggle-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .awg-toggle-bar .comic-btn {
+      flex: 1;
+      justify-content: center;
+    }
+
+    .code-display {
+      background: var(--bg-canvas);
+      border: 2px solid var(--ink-border);
+      padding: 14px;
+      font-family: var(--font-tech);
+      font-size: 0.78rem;
+      line-height: 1.55;
+      white-space: pre;
+      overflow-x: auto;
+      color: var(--text-main);
+    }
+
+    /* =========================================================================
+       TOAST NOTIFICATION (Bottom-Right Comic Box)
+       - Success: Yellow container, Black text & border (#ffb703, #141416)
+       - Error: Red container, White text & border (#ef233c, #ffffff)
+       ========================================================================= */
+    .comic-toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--accent-yellow);
+      color: #141416;
+      border: 3.5px solid var(--ink-border);
+      box-shadow: 6px 6px 0px var(--ink-shadow);
+      padding: 13px 20px;
+      font-family: var(--font-display);
+      font-size: 0.80rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      line-height: 1.35;
+      z-index: 9999;
+      transform: translateY(140%);
+      opacity: 0;
+      transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 440px;
+      word-break: break-word;
+      pointer-events: none;
+    }
+
+    .comic-toast.toast-success {
+      background: var(--accent-yellow);
+      color: #141416;
+    }
+
+    .comic-toast.toast-error {
+      background: var(--accent-red);
+      color: #ffffff;
+    }
+
+    .comic-toast.visible {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .comic-toast svg {
+      width: 20px;
+      height: 20px;
+      stroke-width: 2.8;
+      stroke: currentColor;
+      fill: none;
+      flex-shrink: 0;
+    }
+
+    /* Footer Stamp */
+    .bottom-stamp {
+      margin-top: 40px;
+      text-align: center;
+      border-top: 2px dashed var(--ink-border-soft);
+      padding-top: 24px;
+    }
+
+    .bottom-stamp p {
+      font-family: 'Yu Gothic', 'Hiragino Sans', 'Meiryo', 'Noto Sans JP', var(--font-display), sans-serif;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      letter-spacing: 4px;
+      user-select: none;
+    }
+
+    @media (max-width: 768px) {
+      .card-actions-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .manga-header {
+        padding: 14px 16px;
+      }
+      .brand-text h1 {
+        font-size: 1.15rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="comic-wrapper">
+
+    <!-- =======================================================================
+         HEADER BANNER
+         ======================================================================= -->
+    <header class="manga-header">
+      <div class="brand-section">
+        <div class="manga-logo-stamp">ロ</div>
+        <div class="brand-text">
+          <h1>ウォール・ローゼ <span class="manga-ver-badge">v1.0.0</span></h1>
+          <p class="brand-sub">HOST • <span id="brandHost">127.0.0.1</span></p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <button class="comic-btn comic-btn-yellow" onclick="openAddPeerModal()" style="font-size: 0.74rem; padding: 7px 14px; gap: 5px;" title="Enroll New Peer Device">
+          <span class="btn-plus-icon">+</span> Enroll Device
+        </button>
+        <!-- Force Refresh Metrics: Icon-only Comic Action -->
+        <button class="comic-btn comic-btn-yellow icon-only" onclick="manualRefreshMetrics()" id="refreshBtn" style="padding: 7px 10px;" title="Force Refresh Metrics" aria-label="Refresh">
+          <svg viewBox="0 0 24 24">
+            <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        </button>
+        <!-- Theme Toggle: Icon-only Comic Switcher -->
+        <button class="comic-btn comic-btn-yellow icon-only" onclick="toggleMangaTheme()" id="themeToggleBtn" style="padding: 7px 10px;" title="Toggle Light / Dark Theme" aria-label="Toggle Theme">
+          <svg viewBox="0 0 24 24" id="themeIcon">
+            <circle cx="12" cy="12" r="5"/>
+            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- =======================================================================
+         4 TELEMETRY CELLS (Active Peers, CPU Load, RAM Usage, Network Speed)
+         ========================================================================= -->
+    <section class="telemetry-strip">
+      <!-- Cell 1: Active Peers -->
+      <div class="telemetry-cell">
+        <div class="cell-title">ACTIVE PEERS</div>
+        <div class="cell-main">
+          <div class="cell-stat">
+            <span class="cell-num" id="telemetryPeersNum">0</span>
+            <span class="cell-unit" id="telemetryPeersUnit">Registered</span>
+          </div>
+          <span class="cell-badge badge-green" id="telemetryPeersBadge">0 ONLINE • 0 OFFLINE</span>
+        </div>
+      </div>
+
+      <!-- Cell 2: CPU Load -->
+      <div class="telemetry-cell">
+        <div class="cell-title">CPU LOAD</div>
+        <div class="cell-main">
+          <div class="cell-stat">
+            <span class="cell-num" id="telemetryCpuNum">0%</span>
+          </div>
+          <span class="cell-badge badge-green" id="telemetryCpuBadge">NORMAL LOAD</span>
+        </div>
+      </div>
+
+      <!-- Cell 3: RAM Usage -->
+      <div class="telemetry-cell">
+        <div class="cell-title">RAM USAGE</div>
+        <div class="cell-main">
+          <div class="cell-stat">
+            <span class="cell-num" id="telemetryRamNum">0 MB</span>
+            <span class="cell-unit" id="telemetryRamUnit">/ 0 GB</span>
+          </div>
+          <span class="cell-badge badge-green" id="telemetryRamBadge">0% USED</span>
+        </div>
+      </div>
+
+      <!-- Cell 4: Network Speed -->
+      <div class="telemetry-cell">
+        <div class="cell-title">NETWORK SPEED</div>
+        <div class="cell-main">
+          <div class="cell-stat">
+            <span class="cell-num" id="telemetrySpeedNum">0.0</span>
+            <span class="cell-unit" id="telemetrySpeedUnit">B/s</span>
+          </div>
+          <span class="cell-badge badge-green">
+            <span class="speed-flow">
+              <svg class="telemetry-arrow" viewBox="0 0 16 16"><polygon points="8,2 1,14 15,14"/></svg>
+              <span id="telemetrySpeedUp">0 B/s</span>
+            </span>
+            <span class="badge-dot">•</span>
+            <span class="speed-flow">
+              <svg class="telemetry-arrow" viewBox="0 0 16 16"><polygon points="8,14 1,2 15,2"/></svg>
+              <span id="telemetrySpeedDown">0 B/s</span>
+            </span>
+            <span class="badge-unit">RATE</span>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         CLEAN TABS
+         ========================================================================= -->
+    <nav class="clean-nav">
+      <button class="tab-btn active" id="tab-btn-peers" onclick="switchSection('peers')">
+        <svg viewBox="0 0 24 24">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        Peer Devices
+      </button>
+
+      <button class="tab-btn" id="tab-btn-cores" onclick="switchSection('cores')">
+        <svg viewBox="0 0 24 24">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        Protocol Cores
+      </button>
+
+      <button class="tab-btn" id="tab-btn-routing" onclick="switchSection('routing')">
+        <svg viewBox="0 0 24 24">
+          <circle cx="18" cy="5" r="3"/>
+          <circle cx="6" cy="12" r="3"/>
+          <circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+        Routing & Subscriptions
+      </button>
+    </nav>
+
+    <!-- =======================================================================
+         SECTION 1: PEER DEVICES
+         ========================================================================= -->
+    <main id="section-peers" class="tab-content active">
+      <div class="manga-grid" id="peersGrid">
+
+        <!-- Card 1: Alex Desktop (State: ACTIVE) -->
+        <article class="manga-panel" data-peer="alex">
+          <div class="sfx-badge st-active">*ACTIVE*</div>
+          <div>
+            <div class="panel-top-bar">
+              <div class="panel-meta">
+                <h2 class="panel-title">Alex — Desktop Rig</h2>
+                <span class="panel-device-desc">Windows 11 • Clash Verge Rev</span>
+              </div>
+              <div class="speech-badge st-online">ONLINE</div>
+            </div>
+
+            <div class="specs-list">
+              <div class="spec-item">
+                <span class="spec-key">AWG 2.0:</span>
+                <span class="spec-val">10.8.0.2</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">AWG 3.1:</span>
+                <span class="spec-val">10.9.0.2</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Hysteria 2:</span>
+                <span class="spec-val font-mono">a9f8b2c4e1d67098</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Total Traffic:</span>
+                <span class="spec-val">42.8 GB</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Last Handshake:</span>
+                <span class="spec-val">14s ago</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Buttons layout: Row 1 = AWG + hy2://, Row 2 = Mihomo Sub -->
+          <div class="card-actions">
+            <div class="card-actions-row">
+              <button class="comic-btn" onclick="openAwgModal('Alex', '10.8.0.2', '10.9.0.2')">
+                <svg viewBox="0 0 24 24">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                AWG .conf
+              </button>
+              <button class="comic-btn comic-btn-blue" onclick="copySingbox('Alex')">
+                <svg viewBox="0 0 24 24">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                hy2://
+              </button>
+            </div>
+            <button class="comic-btn comic-btn-red" onclick="copyMihomoSub('Alex')">
+              <svg viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Mihomo Subscription
+            </button>
+          </div>
+        </article>
+
+        <!-- Card 2: Maria Phone (State: STANDBY) -->
+        <article class="manga-panel" data-peer="maria">
+          <div class="sfx-badge st-standby">*STANDBY*</div>
+          <div>
+            <div class="panel-top-bar">
+              <div class="panel-meta">
+                <h2 class="panel-title">Maria — iPhone 15</h2>
+                <span class="panel-device-desc">iOS 17.5 • Sing-box Client</span>
+              </div>
+              <div class="speech-badge st-online">ONLINE</div>
+            </div>
+
+            <div class="specs-list">
+              <div class="spec-item">
+                <span class="spec-key">AWG 2.0:</span>
+                <span class="spec-val">10.8.0.3</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">AWG 3.1:</span>
+                <span class="spec-val">10.9.0.3</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Hysteria 2:</span>
+                <span class="spec-val font-mono">3d7f1e92a4bc8501</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Total Traffic:</span>
+                <span class="spec-val">18.4 GB</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Last Handshake:</span>
+                <span class="spec-val">24s ago (keepalive)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <div class="card-actions-row">
+              <button class="comic-btn" onclick="openAwgModal('Maria', '10.8.0.3', '10.9.0.3')">
+                <svg viewBox="0 0 24 24">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                AWG .conf
+              </button>
+              <button class="comic-btn comic-btn-blue" onclick="copySingbox('Maria')">
+                <svg viewBox="0 0 24 24">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                hy2://
+              </button>
+            </div>
+            <button class="comic-btn comic-btn-red" onclick="copyMihomoSub('Maria')">
+              <svg viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Mihomo Subscription
+            </button>
+          </div>
+        </article>
+
+        <!-- Card 3: Work Laptop (State: STALE) -->
+        <article class="manga-panel" data-peer="work">
+          <div class="sfx-badge st-stale">*STALE*</div>
+          <div>
+            <div class="panel-top-bar">
+              <div class="panel-meta">
+                <h2 class="panel-title">Work Laptop — Mac</h2>
+                <span class="panel-device-desc">macOS Sonoma • Mihomo CLI</span>
+              </div>
+              <div class="speech-badge st-offline">OFFLINE</div>
+            </div>
+
+            <div class="specs-list">
+              <div class="spec-item">
+                <span class="spec-key">AWG 2.0:</span>
+                <span class="spec-val">10.8.0.4</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">AWG 3.1:</span>
+                <span class="spec-val">10.9.0.4</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Hysteria 2:</span>
+                <span class="spec-val font-mono">8e4b10fa72cd3956</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Total Traffic:</span>
+                <span class="spec-val">31.2 GB</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Last Handshake:</span>
+                <span class="spec-val">14m ago (timeout)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <div class="card-actions-row">
+              <button class="comic-btn" onclick="openAwgModal('Work', '10.8.0.4', '10.9.0.4')">
+                <svg viewBox="0 0 24 24">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                AWG .conf
+              </button>
+              <button class="comic-btn comic-btn-blue" onclick="copySingbox('Work')">
+                <svg viewBox="0 0 24 24">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                hy2://
+              </button>
+            </div>
+            <button class="comic-btn comic-btn-red" onclick="copyMihomoSub('Work')">
+              <svg viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Mihomo Subscription
+            </button>
+          </div>
+        </article>
+
+        <!-- Card 4: Living Room TV (State: INACTIVE) -->
+        <article class="manga-panel" data-peer="livingroom">
+          <div class="sfx-badge st-inactive">*INACTIVE*</div>
+          <div>
+            <div class="panel-top-bar">
+              <div class="panel-meta">
+                <h2 class="panel-title">Living Room — TV</h2>
+                <span class="panel-device-desc">tvOS 17 • Karing Client</span>
+              </div>
+              <div class="speech-badge st-offline">OFFLINE</div>
+            </div>
+
+            <div class="specs-list">
+              <div class="spec-item">
+                <span class="spec-key">AWG 2.0:</span>
+                <span class="spec-val">10.8.0.5</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">AWG 3.1:</span>
+                <span class="spec-val">10.9.0.5</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Hysteria 2:</span>
+                <span class="spec-val font-mono">2c9e71ab54fd6308</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Total Traffic:</span>
+                <span class="spec-val">64.1 GB</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Last Handshake:</span>
+                <span class="spec-val">3d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <div class="card-actions-row">
+              <button class="comic-btn" onclick="openAwgModal('LivingRoom', '10.8.0.5', '10.9.0.5')">
+                <svg viewBox="0 0 24 24">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                AWG .conf
+              </button>
+              <button class="comic-btn comic-btn-blue" onclick="copySingbox('LivingRoom')">
+                <svg viewBox="0 0 24 24">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                hy2://
+              </button>
+            </div>
+            <button class="comic-btn comic-btn-red" onclick="copyMihomoSub('LivingRoom')">
+              <svg viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Mihomo Subscription
+            </button>
+          </div>
+        </article>
+
+        <!-- Card 5: Guest Tablet (State: PENDING) -->
+        <article class="manga-panel" data-peer="guest">
+          <div class="sfx-badge st-pending">*PENDING*</div>
+          <div>
+            <div class="panel-top-bar">
+              <div class="panel-meta">
+                <h2 class="panel-title">Guest — Pixel Tablet</h2>
+                <span class="panel-device-desc">Awaiting Client Connection</span>
+              </div>
+              <div class="speech-badge st-offline">OFFLINE</div>
+            </div>
+
+            <div class="specs-list">
+              <div class="spec-item">
+                <span class="spec-key">AWG 2.0:</span>
+                <span class="spec-val">10.8.0.6</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">AWG 3.1:</span>
+                <span class="spec-val">10.9.0.6</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Hysteria 2:</span>
+                <span class="spec-val font-mono">5b0f83ea91cd4271</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Total Traffic:</span>
+                <span class="spec-val">0 B</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Last Handshake:</span>
+                <span class="spec-val">never</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <div class="card-actions-row">
+              <button class="comic-btn" onclick="openAwgModal('Guest', '10.8.0.6', '10.9.0.6')">
+                <svg viewBox="0 0 24 24">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                AWG .conf
+              </button>
+              <button class="comic-btn comic-btn-blue" onclick="copySingbox('Guest')">
+                <svg viewBox="0 0 24 24">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                hy2://
+              </button>
+            </div>
+            <button class="comic-btn comic-btn-red" onclick="copyMihomoSub('Guest')">
+              <svg viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Mihomo Subscription
+            </button>
+          </div>
+        </article>
+
+        <!-- Card 6: Backup Server (State: SUSPENDED) -->
+        <article class="manga-panel" data-peer="backup">
+          <div class="sfx-badge st-suspended">*SUSPENDED*</div>
+          <div>
+            <div class="panel-top-bar">
+              <div class="panel-meta">
+                <h2 class="panel-title">Backup — Home Server</h2>
+                <span class="panel-device-desc">Debian 12 • Excluded Peer</span>
+              </div>
+              <div class="speech-badge st-offline">OFFLINE</div>
+            </div>
+
+            <div class="specs-list">
+              <div class="spec-item">
+                <span class="spec-key">AWG 2.0:</span>
+                <span class="spec-val">10.8.0.7</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">AWG 3.1:</span>
+                <span class="spec-val">10.9.0.7</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Hysteria 2:</span>
+                <span class="spec-val font-mono">7d2e49fa18bc6034</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Total Traffic:</span>
+                <span class="spec-val">1.2 GB</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-key">Last Handshake:</span>
+                <span class="spec-val">suspended</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <div class="card-actions-row">
+              <button class="comic-btn" onclick="openAwgModal('Backup', '10.8.0.7', '10.9.0.7')">
+                <svg viewBox="0 0 24 24">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                AWG .conf
+              </button>
+              <button class="comic-btn comic-btn-blue" onclick="copySingbox('Backup')">
+                <svg viewBox="0 0 24 24">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                hy2://
+              </button>
+            </div>
+            <button class="comic-btn comic-btn-red" onclick="copyMihomoSub('Backup')">
+              <svg viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Mihomo Subscription
+            </button>
+          </div>
+        </article>
+
+      </div>
+
+      <!-- Add Peer Callout Button -->
+      <div style="text-align: center; margin-top: 10px;">
+        <button class="comic-btn comic-btn-yellow" onclick="openAddPeerModal()" style="padding: 14px 28px; font-size: 0.85rem; gap: 8px;">
+          <span class="btn-plus-icon" style="font-size: 1.3rem; transform: translateY(-2.5px);">+</span>
+          ENROLL NEW PEER DEVICE
+        </button>
+      </div>
+    </main>
+
+    <!-- =======================================================================
+         SECTION 2: PROTOCOL CORES
+         ========================================================================= -->
+    <section id="section-cores" class="tab-content">
+      <div class="core-blueprint-grid">
+
+        <!-- Core 1: AmneziaWG 2.0 -->
+        <article class="core-blueprint">
+          <div>
+            <div class="blueprint-header">
+              <div>
+                <h3>AmneziaWG 2.0</h3>
+                <span class="blueprint-sub">Interface awg0 • UDP 51820</span>
+              </div>
+              <div class="speech-badge st-online" id="status-badge-awg0">ONLINE</div>
+            </div>
+            <p class="blueprint-desc">
+              Modified WireGuard implementation featuring packet obfuscation, junk packet injection (Jc, Jmin, Jmax), and mutated initiation headers (H1-H4) to evade Deep Packet Inspection (DPI) censorship.
+            </p>
+          </div>
+          <div class="blueprint-actions">
+            <button class="comic-btn" onclick="verifyCore('awg0', 'AmneziaWG 2.0')">
+              <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.5;">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Verify Core
+            </button>
+            <button class="comic-btn comic-btn-yellow" onclick="openServerConfigModal('awg0')">
+              <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.5;">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              Config
+            </button>
+          </div>
+        </article>
+
+        <!-- Core 2: AmneziaWG 3.1 -->
+        <article class="core-blueprint">
+          <div>
+            <div class="blueprint-header">
+              <div>
+                <h3>AmneziaWG 3.1</h3>
+                <span class="blueprint-sub">Interface awg1 • UDP 51821</span>
+              </div>
+              <div class="speech-badge st-online" id="status-badge-awg1">ONLINE</div>
+            </div>
+            <p class="blueprint-desc">
+              Next-generation AmneziaWG protocol core incorporating ChaCha20-encrypted header structures (S1/S2 >= 12) and randomized packet padding to bypass advanced heuristic traffic analyzers.
+            </p>
+          </div>
+          <div class="blueprint-actions">
+            <button class="comic-btn" onclick="verifyCore('awg1', 'AmneziaWG 3.1')">
+              <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.5;">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Verify Core
+            </button>
+            <button class="comic-btn comic-btn-yellow" onclick="openServerConfigModal('awg1')">
+              <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.5;">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              Config
+            </button>
+          </div>
+        </article>
+
+        <!-- Core 3: Hysteria 2 -->
+        <article class="core-blueprint">
+          <div>
+            <div class="blueprint-header">
+              <div>
+                <h3>Hysteria 2</h3>
+                <span class="blueprint-sub">Port 443 • Port Hop 20000:50000</span>
+              </div>
+              <div class="speech-badge st-online" id="status-badge-hy2">ONLINE</div>
+            </div>
+            <p class="blueprint-desc">
+              High-performance proxy protocol built on custom QUIC (UDP) architecture. Features Brutal congestion control for high throughput over lossy links and Salamander protocol obfuscation.
+            </p>
+          </div>
+          <div class="blueprint-actions">
+            <button class="comic-btn" onclick="verifyCore('hy2', 'Hysteria 2')">
+              <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.5;">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Verify Core
+            </button>
+            <button class="comic-btn comic-btn-yellow" onclick="openServerConfigModal('hy2')">
+              <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.5;">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              Config
+            </button>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         SECTION 3: ROUTING & SUBSCRIPTIONS
+         ========================================================================= -->
+    <section id="section-routing" class="tab-content">
+      <div class="strategy-layout">
+
+        <!-- Left: Split Tunneling Explanation -->
+        <div class="strategy-panel">
+          <h3>
+            <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.5;">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            Split-Tunneling Rules
+          </h3>
+
+          <div class="flow-step">
+            <div class="flow-num">1</div>
+            <div class="flow-body">
+              <h4>Strict Deterministic Failover</h4>
+              <p>Mihomo group <code>type: fallback</code> with <code>lazy: true</code> routes traffic through <strong>AWG 3.1</strong> ➔ <strong>AWG 2.0</strong> ➔ <strong>Hysteria 2</strong>. Zero socket flapping, protecting games and voice calls.</p>
+            </div>
+          </div>
+
+          <div class="flow-step">
+            <div class="flow-num">2</div>
+            <div class="flow-body">
+              <h4>Targeted Proxy Bypasses</h4>
+              <p>Rules prioritize <strong>YouTube</strong> (bypasses throttled GGC caches), <strong>Discord</strong>, <strong>Telegram & VoIP</strong> (unblocks regional throttling), and <strong>Antifilter</strong> (all RKN registry blocks) straight into the tunnel.</p>
+            </div>
+          </div>
+
+          <div class="flow-step">
+            <div class="flow-num">3</div>
+            <div class="flow-body">
+              <h4>Domestic Direct Bypass</h4>
+              <p>Rules <code>category-ru</code> and <code>GEOIP,RU,DIRECT</code> keep Russian banking (Sber, T-Bank), Gosuslugi, and local marketplaces on direct home ISP without foreign IP lockouts.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: YAML Configuration Code -->
+        <div class="strategy-panel">
+          <h3>
+            <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.5;">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+            Generated Clash.Meta / Mihomo Subscription
+          </h3>
+
+          <div class="yaml-preview-box" id="yamlSnippet"># Mihomo Dynamic Client Subscription (/sub/{token})
+mixed-port: 7890
+allow-lan: false
+mode: rule
+log-level: info
+
+proxies:
+  # 1. AWG 3.1 Primary (ChaCha20 Header Protection)
+  - name: "AWG-3.1"
+    type: wireguard
+    server: 185.196.220.45
+    port: 51821
+    ip: 10.9.0.2
+    public-key: "dddddd_AWG31_ServerKey_DDDDDD="
+    private-key: "cccccc_ClientPrivateKey_CCCCCC="
+    amnezia-jc: 5
+    amnezia-jmin: 50
+    amnezia-jmax: 80
+    amnezia-s1: 16
+    amnezia-s2: 32
+    amnezia-h1: 5
+    amnezia-h2: 6
+    amnezia-h3: 7
+    amnezia-h4: 8
+
+  # 2. AWG 2.0 Secondary (Fixed UDP Socket)
+  - name: "AWG-2.0"
+    type: wireguard
+    server: 185.196.220.45
+    port: 51820
+    ip: 10.8.0.2
+    public-key: "bbbbbb_AWG20_ServerKey_BBBBBB="
+    private-key: "aaaaaa_ClientPrivateKey_AAAAAA="
+    amnezia-jc: 4
+    amnezia-jmin: 40
+    amnezia-jmax: 70
+    amnezia-s1: 28
+    amnezia-s2: 64
+    amnezia-h1: 1
+    amnezia-h2: 2
+    amnezia-h3: 3
+    amnezia-h4: 4
+
+  # 3. Hysteria 2 Disaster Recovery (Salamander + Port Hopping)
+  - name: "Hy2-Salamander"
+    type: hysteria2
+    server: 185.196.220.45
+    ports: 20000-50000
+    password: "tok_client_password_secret"
+    obfs: salamander
+    obfs-password: "obfs_secret_pass"
+    skip-cert-verify: true
+
+proxy-groups:
+  - name: "AUTO-FAILOVER"
+    type: fallback
+    url: "https://www.gstatic.com/generate_204"
+    interval: 300
+    lazy: true
+    proxies:
+      - "AWG-3.1"
+      - "AWG-2.0"
+      - "Hy2-Salamander"
+
+rule-providers:
+  youtube:
+    type: http
+    behavior: domain
+    format: mrs
+    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/youtube.mrs"
+    path: ./rules/youtube.mrs
+    interval: 86400
+
+  discord:
+    type: http
+    behavior: domain
+    format: mrs
+    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/discord.mrs"
+    path: ./rules/discord.mrs
+    interval: 86400
+
+  telegram:
+    type: http
+    behavior: domain
+    format: mrs
+    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/telegram.mrs"
+    path: ./rules/telegram.mrs
+    interval: 86400
+
+  antifilter:
+    type: http
+    behavior: domain
+    format: mrs
+    url: "https://raw.githubusercontent.com/legiz-ru/mihomo-rule-sets/main/ru-bundle/antifilter-community.mrs"
+    path: ./rules/antifilter.mrs
+    interval: 86400
+
+  category-ru:
+    type: http
+    behavior: domain
+    format: mrs
+    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ru.mrs"
+    path: ./rules/category-ru.mrs
+    interval: 86400
+
+  geoip-ru:
+    type: http
+    behavior: ipcidr
+    format: mrs
+    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/ru.mrs"
+    path: ./rules/geoip-ru.mrs
+    interval: 86400
+
+rules:
+  - GEOIP,private,DIRECT,no-resolve
+  - RULE-SET,youtube,AUTO-FAILOVER
+  - RULE-SET,discord,AUTO-FAILOVER
+  - RULE-SET,telegram,AUTO-FAILOVER
+  - GEOIP,telegram,AUTO-FAILOVER,no-resolve
+  - RULE-SET,antifilter,AUTO-FAILOVER
+  - RULE-SET,category-ru,DIRECT
+  - DOMAIN-SUFFIX,ru,DIRECT
+  - DOMAIN-SUFFIX,рф,DIRECT
+  - RULE-SET,geoip-ru,DIRECT
+  - MATCH,AUTO-FAILOVER</div>
+
+          <div style="margin-top: 14px; display: flex; justify-content: flex-end;">
+            <button class="comic-btn comic-btn-red" onclick="openYamlPreview()">
+              <svg viewBox="0 0 24 24">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              Open YAML Preview
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Bottom Footer Stamp -->
+    <footer class="bottom-stamp">
+      <p>・ウォール・ローゼ・</p>
+    </footer>
+
+  </div>
+
+  <!-- =======================================================================
+       ENROLL NEW DEVICE MODAL
+       ========================================================================= -->
+  <div class="comic-modal-overlay" id="addPeerModal">
+    <div class="comic-modal" style="max-width: 520px;">
+      <div class="modal-head">
+        <div>
+          <h3>Enroll New Device</h3>
+          <span style="font-family: var(--font-tech); font-size: 0.72rem; color: var(--text-muted); font-weight: 700;">Provision multi-protocol access keys</span>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal('addPeerModal')" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div>
+            <label style="font-family: var(--font-display); font-size: 0.75rem; text-transform: uppercase; display: block; margin-bottom: 6px;">Device / User Name <span style="color: var(--accent-red);">*</span></label>
+            <input type="text" id="newPeerName" placeholder="e.g. Alex Phone, Work Mac, Home Router" style="width: 100%; box-sizing: border-box; padding: 10px 12px; font-family: var(--font-ui); font-size: 0.9rem; font-weight: 700; border: 2.5px solid var(--ink-border); border-radius: 6px; background: var(--bg-canvas); color: var(--text-main);">
+            <p style="font-family: var(--font-ui); font-size: 0.70rem; color: var(--text-muted); line-height: 1.4; margin-top: 6px;">Operating system and client app (Mihomo, Clash Verge, Sing-box, Flclash) are automatically detected and saved upon first connection.</p>
+          </div>
+          <div>
+            <label style="font-family: var(--font-display); font-size: 0.70rem; text-transform: uppercase; display: block; margin-bottom: 6px; color: var(--text-muted);">Active Mesh Cores Provisioned</label>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+              <div style="background: var(--bg-canvas); border: 2px solid var(--ink-border); padding: 8px 6px; text-align: center; border-radius: 4px;">
+                <span style="font-family: var(--font-display); font-size: 0.70rem; font-weight: 700; color: var(--accent-red); display: block;">AWG 3.1</span>
+                <span style="font-family: var(--font-ui); font-size: 0.58rem; color: var(--text-muted);">ChaCha20 Stealth</span>
+              </div>
+              <div style="background: var(--bg-canvas); border: 2px solid var(--ink-border); padding: 8px 6px; text-align: center; border-radius: 4px;">
+                <span style="font-family: var(--font-display); font-size: 0.70rem; font-weight: 700; color: var(--text-main); display: block;">AWG 2.0</span>
+                <span style="font-family: var(--font-ui); font-size: 0.58rem; color: var(--text-muted);">Standard UDP</span>
+              </div>
+              <div style="background: var(--bg-canvas); border: 2px solid var(--ink-border); padding: 8px 6px; text-align: center; border-radius: 4px;">
+                <span style="font-family: var(--font-display); font-size: 0.70rem; font-weight: 700; color: var(--accent-blue); display: block;">Hysteria 2</span>
+                <span style="font-family: var(--font-ui); font-size: 0.58rem; color: var(--text-muted);">QUIC Salamander</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="comic-btn" onclick="closeModal('addPeerModal')">Cancel</button>
+        <button class="comic-btn comic-btn-yellow" onclick="submitNewPeer()">
+          <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 3;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Enroll Device
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       AWG VERSION SELECTOR MODAL
+       ========================================================================= -->
+  <div class="comic-modal-overlay" id="awgModal">
+    <div class="comic-modal">
+      <div class="modal-head">
+        <h3 id="awgModalTitle">Configuration (.conf)</h3>
+        <button class="modal-close-btn" onclick="closeModal('awgModal')" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="awg-toggle-bar">
+          <button class="comic-btn comic-btn-red" id="btnAwg2" onclick="setAwgVer('2.0')">
+            AWG 2.0 (.conf)
+          </button>
+          <button class="comic-btn" id="btnAwg3" onclick="setAwgVer('3.1')">
+            AWG 3.1 (.conf)
+          </button>
+        </div>
+        <div class="code-display" id="awgCodeBox"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="comic-btn comic-btn-yellow" onclick="downloadAwgFile()">
+          Download .conf File
+        </button>
+        <button class="comic-btn" onclick="copyCodeFrom('awgCodeBox')">
+          Copy Text
+        </button>
+        <button class="comic-btn" onclick="closeModal('awgModal')">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       FULL YAML MODAL PREVIEW
+       ========================================================================= -->
+  <div class="comic-modal-overlay" id="yamlModal">
+    <div class="comic-modal" style="max-width: 720px;">
+      <div class="modal-head">
+        <h3>Mihomo (Clash.Meta) Unified Subscription YAML</h3>
+        <button class="modal-close-btn" onclick="closeModal('yamlModal')" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="code-display" id="modalYamlBox" style="max-height: 480px;"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="comic-btn comic-btn-yellow" onclick="copyCodeFrom('modalYamlBox')">
+          <svg viewBox="0 0 24 24">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          Copy YAML Config
+        </button>
+        <button class="comic-btn" onclick="closeModal('yamlModal')">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       SERVER CONFIG EDITOR MODAL
+       ========================================================================= -->
+  <div class="comic-modal-overlay" id="serverConfigModal">
+    <div class="comic-modal" style="max-width: 760px;">
+      <div class="modal-head">
+        <div>
+          <h3 id="serverConfigTitle">Server Configuration</h3>
+          <span id="serverConfigFilepath" style="font-family: var(--font-tech); font-size: 0.72rem; color: var(--text-muted); font-weight: 700;">/etc/...</span>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal('serverConfigModal')" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="editor-notice">
+          <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; stroke: var(--accent-red); fill: none; stroke-width: 2.5; flex-shrink: 0;">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span>Direct VPS configuration editor. Saving writes directly to server disk and restarts the daemon.</span>
+        </div>
+        <textarea class="comic-textarea" id="serverConfigTextarea" spellcheck="false"></textarea>
+      </div>
+      <div class="modal-foot">
+        <button class="comic-btn comic-btn-yellow" onclick="saveServerConfig()">
+          <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.5;">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+            <polyline points="7 3 7 8 15 8"/>
+          </svg>
+          Save & Restart Core
+        </button>
+        <button class="comic-btn" onclick="copyServerConfig()">
+          Copy Text
+        </button>
+        <button class="comic-btn comic-btn-black" onclick="closeModal('serverConfigModal')">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comic Toast Pop-up -->
+  <div class="comic-toast toast-success" id="comicToast" role="alert" aria-live="polite">
+    <span id="toastIcon" style="display: flex; align-items: center;">
+      <svg viewBox="0 0 24 24">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </span>
+    <span id="toastMsg">Action Successful!</span>
+  </div>
+
+  <!-- =======================================================================
+       JAVASCRIPT LOGIC
+       ========================================================================= -->
+  <script>
+    // Tab Navigation
+    function switchSection(secId) {
+      const sections = ['peers', 'cores', 'routing'];
+      sections.forEach(s => {
+        const sec = document.getElementById(`section-${s}`);
+        const tab = document.getElementById(`tab-btn-${s}`);
+        if (sec) sec.classList.toggle('active', s === secId);
+        if (tab) tab.classList.toggle('active', s === secId);
+      });
+    }
+
+    // Manga Theme Switcher (Tankōbon Paper vs Manga Noir)
+    let currentTheme = 'tankobon';
+    const sunSvg = '<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>';
+    const moonSvg = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+
+    function toggleMangaTheme() {
+      const icon = document.getElementById('themeIcon');
+      if (currentTheme === 'tankobon') {
+        currentTheme = 'manga-noir';
+        document.body.setAttribute('data-theme', 'manga-noir');
+        if (icon) icon.innerHTML = moonSvg;
+        showToast('Theme: Manga Noir (Dark)');
+      } else {
+        currentTheme = 'tankobon';
+        document.body.removeAttribute('data-theme');
+        if (icon) icon.innerHTML = sunSvg;
+        showToast('Theme: Tankōbon Paper (Light)');
+      }
+    }
+
+    // Toast Notification System
+    let toastTimeout = null;
+
+    const toastSuccessIcon = `
+      <svg viewBox="0 0 24 24">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    `;
+
+    const toastErrorIcon = `
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    `;
+
+    // Toast Pop-up: 'success' (yellow, black text) or 'error' (red, white text)
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('comicToast');
+      const msgEl = document.getElementById('toastMsg');
+      const iconEl = document.getElementById('toastIcon');
+      if (!t || !msgEl) return;
+
+      if (toastTimeout) {
+        clearTimeout(toastTimeout);
+        toastTimeout = null;
+      }
+
+      msgEl.textContent = msg;
+
+      // Reset classes
+      t.classList.remove('toast-success', 'toast-error', 'visible');
+
+      if (type === 'error') {
+        t.classList.add('toast-error');
+        if (iconEl) iconEl.innerHTML = toastErrorIcon;
+      } else {
+        t.classList.add('toast-success');
+        if (iconEl) iconEl.innerHTML = toastSuccessIcon;
+      }
+
+      requestAnimationFrame(() => {
+        t.classList.add('visible');
+      });
+
+      const duration = type === 'error' ? 4500 : 2800;
+      toastTimeout = setTimeout(() => {
+        t.classList.remove('visible');
+      }, duration);
+    }
+
+    // Modal Helpers
+    function closeModal(id) {
+      const m = document.getElementById(id);
+      if (m) m.classList.remove('open');
+    }
+
+    function copyCodeFrom(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      navigator.clipboard.writeText(el.textContent).then(() => {
+        showToast('*KA-CHING!* Copied to clipboard!', 'success');
+      }).catch(err => {
+        showToast(`*COPY FAILED* ${err.message}`, 'error');
+      });
+    }
+
+    function openYamlPreview() {
+      const snippet = document.getElementById('yamlSnippet');
+      if (snippet) {
+        document.getElementById('modalYamlBox').textContent = snippet.textContent;
+      }
+      document.getElementById('yamlModal').classList.add('open');
+    }
+
+    // =========================================================================
+    // REST API INTEGRATION LAYER
+    // =========================================================================
+
+    let peersData = [];
+    let curPeerId = 1;
+    let curPeerName = 'Alex';
+    let curIp2 = '10.8.0.2';
+    let curIp3 = '10.9.0.2';
+    let curVer = '3.1';
+    let curEditingCore = 'awg0';
+
+    async function manualRefreshMetrics() {
+      const btn = document.getElementById('refreshBtn');
+      if (btn) btn.style.transform = 'scale(0.90)';
+      try {
+        const [pOk, tOk] = await Promise.all([loadPeers(true), loadTelemetry(true), loadCores(true)]);
+        if (pOk && tOk) {
+          showToast('*REFRESHED!* Metrics and peer statuses updated.', 'success');
+        } else {
+          showToast('*NOTICE* Partial response received from host.', 'error');
+        }
+      } catch (err) {
+        showToast(`*ERROR* Refresh failed: ${err.message || 'Host unreachable'}`, 'error');
+      } finally {
+        if (btn) setTimeout(() => { btn.style.transform = ''; }, 150);
+      }
+    }
+
+    async function loadTelemetry(throwOnErr = false) {
+      try {
+        const res = await fetch('/api/telemetry');
+        if (!res.ok) {
+          if (throwOnErr) return false;
+          return false;
+        }
+        const data = await res.json();
+
+        // Cell 1: Active Peers
+        const peersNum = document.getElementById('telemetryPeersNum');
+        const peersBadge = document.getElementById('telemetryPeersBadge');
+        if (peersNum) peersNum.textContent = data.peers_total;
+        if (peersBadge) peersBadge.textContent = `${data.peers_online} ONLINE • ${data.peers_offline} OFFLINE`;
+
+        // Cell 2: CPU Load
+        const cpuNum = document.getElementById('telemetryCpuNum');
+        const cpuBadge = document.getElementById('telemetryCpuBadge');
+        if (cpuNum) cpuNum.textContent = `${data.cpu_percent}%`;
+        if (cpuBadge) cpuBadge.textContent = `${data.cpu_cores} CORES LOAD`;
+
+        // Cell 3: RAM Usage
+        const ramNum = document.getElementById('telemetryRamNum');
+        const ramUnit = document.getElementById('telemetryRamUnit');
+        const ramBadge = document.getElementById('telemetryRamBadge');
+        if (ramNum) ramNum.textContent = data.ram_used_formatted;
+        if (ramUnit) ramUnit.textContent = `/ ${data.ram_total_formatted}`;
+        if (ramBadge) ramBadge.textContent = `${data.ram_percent}% USED`;
+
+        // Cell 4: Network Speed (Peak Duplex Capacity = max(RX, TX))
+        const downBytes = data.net_speed_down_bytes || 0;
+        const upBytes = data.net_speed_up_bytes || 0;
+        const peakBytes = Math.max(downBytes, upBytes);
+
+        function formatSpeedRate(bytes) {
+          if (bytes < 1024) return { num: bytes.toString(), unit: 'B/s' };
+          const kb = bytes / 1024;
+          if (kb < 1024) return { num: kb.toFixed(1), unit: 'KB/s' };
+          const mb = kb / 1024;
+          if (mb < 1024) return { num: mb.toFixed(1), unit: 'MB/s' };
+          const gb = mb / 1024;
+          return { num: gb.toFixed(2), unit: 'GB/s' };
+        }
+
+        const peakFormatted = formatSpeedRate(peakBytes);
+        const speedNum = document.getElementById('telemetrySpeedNum');
+        const speedUnit = document.getElementById('telemetrySpeedUnit');
+        const speedUp = document.getElementById('telemetrySpeedUp');
+        const speedDown = document.getElementById('telemetrySpeedDown');
+
+        if (speedNum) speedNum.textContent = peakFormatted.num;
+        if (speedUnit) speedUnit.textContent = peakFormatted.unit;
+        if (speedUp) speedUp.textContent = data.net_speed_up_formatted;
+        if (speedDown) speedDown.textContent = data.net_speed_down_formatted;
+        return true;
+      } catch (err) {
+        console.warn('Telemetry poll skipped:', err);
+        if (throwOnErr) return false;
+      }
+    }
+
+    async function loadPeers(throwOnErr = false) {
+      try {
+        const res = await fetch('/api/peers');
+        if (!res.ok) {
+          if (throwOnErr) return false;
+          return false;
+        }
+        peersData = await res.json();
+
+        const grid = document.getElementById('peersGrid');
+        if (!grid) return true;
+
+        if (peersData.length === 0) {
+          grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: var(--bg-panel); border: 3.5px dashed var(--ink-border); border-radius: 12px;">
+              <h3 style="font-family: var(--font-display); font-size: 1.4rem; text-transform: uppercase; margin-bottom: 8px;">No Devices Enrolled</h3>
+              <p style="font-family: var(--font-ui); font-size: 0.88rem; color: var(--text-muted); margin-bottom: 20px;">Click 'Enroll Device' above to provision your first AmneziaWG & Hysteria 2 client node!</p>
+              <button class="comic-btn comic-btn-yellow" onclick="openAddPeerModal()" style="gap: 6px;">
+                <span class="btn-plus-icon">+</span>
+                Enroll First Device
+              </button>
+            </div>
+          `;
+          return true;
+        }
+
+        grid.innerHTML = peersData.map(peer => {
+          let sfxBadge = '*ACTIVE*';
+          let sfxClass = 'st-active';
+          let statusBadge = 'ONLINE';
+          let statusClass = 'st-online';
+
+          if (peer.status === 'SUSPENDED') {
+            sfxBadge = '*SUSPENDED*';
+            sfxClass = 'st-offline';
+            statusBadge = 'SUSPENDED';
+            statusClass = 'st-offline';
+          } else if (!peer.is_online) {
+            sfxBadge = '*STANDBY*';
+            sfxClass = 'st-standby';
+            statusBadge = 'OFFLINE';
+            statusClass = 'st-offline';
+          }
+
+          const origin = window.location.origin;
+          const subUrl = `${origin}/sub/${peer.subscription_url.split('/sub/')[1] || peer.id}`;
+          const isSuspended = peer.status === 'SUSPENDED';
+
+          return `
+            <article class="manga-panel" data-peer="${peer.id}">
+              <div class="sfx-badge ${sfxClass}">${sfxBadge}</div>
+              <div>
+                <div class="panel-top-bar">
+                  <div class="panel-meta">
+                    <h2 class="panel-title">${escapeHtml(peer.name)}</h2>
+                    <span class="panel-device-desc">${escapeHtml(peer.device_desc)}</span>
+                  </div>
+                  <div class="speech-badge ${statusClass}">${statusBadge}</div>
+                </div>
+
+                <div class="specs-list">
+                  <div class="spec-item">
+                    <span class="spec-key">AWG 2.0:</span>
+                    <span class="spec-val">${peer.awg0_ip}</span>
+                  </div>
+                  <div class="spec-item">
+                    <span class="spec-key">AWG 3.1:</span>
+                    <span class="spec-val">${peer.awg1_ip}</span>
+                  </div>
+                  <div class="spec-item">
+                    <span class="spec-key">Hysteria 2:</span>
+                    <span class="spec-val font-mono" style="cursor: pointer; font-family: var(--font-tech);" title="Click to copy password" onclick="navigator.clipboard.writeText('${escapeHtml(peer.hy2_pass)}'); showToast('*COPIED!* Hysteria 2 password copied.', 'success');">${escapeHtml(peer.hy2_pass)}</span>
+                  </div>
+                  <div class="spec-item">
+                    <span class="spec-key">Total Traffic:</span>
+                    <span class="spec-val font-bold">${peer.transfer_total_formatted}</span>
+                  </div>
+                  <div class="spec-item">
+                    <span class="spec-key">Handshake:</span>
+                    <span class="spec-val">${peer.last_handshake_relative}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="card-actions-row">
+                  <button class="comic-btn comic-btn-yellow" onclick="copyMihomoSubUrl('${subUrl}', '${escapeHtml(peer.name)}')">
+                    <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Mihomo Sub
+                  </button>
+                  <button class="comic-btn comic-btn-blue" onclick="copySingboxSubUrl('${subUrl}?format=json', '${escapeHtml(peer.name)}')">
+                    <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    Sing-box
+                  </button>
+                  <button class="comic-btn" onclick="openPeerAwgModal(${peer.id}, '${escapeHtml(peer.name)}', '${peer.awg0_ip}', '${peer.awg1_ip}')">
+                    <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    AWG .conf
+                  </button>
+                </div>
+
+                <div class="card-footer-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1.5px dashed var(--ink-border-soft);">
+                  <button class="comic-btn" style="padding: 4px 10px; font-size: 0.68rem;" onclick="togglePeerStatus(${peer.id}, '${peer.status}')">
+                    ${isSuspended ? 'Resume Node' : 'Suspend'}
+                  </button>
+                  <button class="comic-btn comic-btn-red icon-only" style="padding: 4px 8px;" onclick="deletePeerNode(${peer.id}, '${escapeHtml(peer.name)}')" title="Revoke & Delete Device">
+                    <svg viewBox="0 0 24 24" style="width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2.5;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              </div>
+            </article>
+          `;
+        }).join('');
+        return true;
+      } catch (err) {
+        console.warn('Peers poll skipped:', err);
+        if (throwOnErr) return false;
+      }
+    }
+
+    async function loadCores(throwOnErr = false) {
+      try {
+        const res = await fetch('/api/cores');
+        if (!res.ok) {
+          if (throwOnErr) return false;
+          return false;
+        }
+        const cores = await res.json();
+        cores.forEach(c => {
+          const badge = document.getElementById(`status-badge-${c.core_id}`);
+          if (badge) {
+            badge.textContent = c.is_active ? 'ONLINE' : 'STOPPED';
+            badge.className = c.is_active ? 'speech-badge st-online' : 'speech-badge st-offline';
+          }
+        });
+        return true;
+      } catch (err) {
+        console.warn('Cores poll skipped:', err);
+        if (throwOnErr) return false;
+      }
+    }
+
+    // Modal: Enroll Device
+    function openAddPeerModal() {
+      const nameInput = document.getElementById('newPeerName');
+      if (nameInput) nameInput.value = '';
+      document.getElementById('addPeerModal').classList.add('open');
+      if (nameInput) nameInput.focus();
+    }
+
+    async function submitNewPeer() {
+      const name = document.getElementById('newPeerName').value.trim();
+      if (!name) {
+        showToast('*VALIDATION ERROR* Please enter a device or person name.', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/peers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name, device_desc: 'Waiting for connection...' })
+        });
+
+        if (res.ok) {
+          const created = await res.json();
+          closeModal('addPeerModal');
+          showToast(`*BAM!* Device '${created.name}' enrolled successfully!`, 'success');
+          await loadPeers();
+          await loadTelemetry();
+        } else {
+          let errMsg = 'Registration failed';
+          try {
+            const err = await res.json();
+            errMsg = err.detail || (err.message || errMsg);
+          } catch (_) {}
+          showToast(`*ENROLLMENT FAILED* ${errMsg}`, 'error');
+        }
+      } catch (err) {
+        showToast(`*NETWORK ERROR* ${err.message || 'Connection failed'}`, 'error');
+      }
+    }
+
+    // Modal: AWG Conf Generator
+    function openPeerAwgModal(peerId, peerName, ip2, ip3) {
+      curPeerId = peerId;
+      curPeerName = peerName;
+      curIp2 = ip2;
+      curIp3 = ip3;
+      setAwgVer('3.1');
+      document.getElementById('awgModal').classList.add('open');
+    }
+
+    async function setAwgVer(ver) {
+      curVer = ver;
+      const b2 = document.getElementById('btnAwg2');
+      const b3 = document.getElementById('btnAwg3');
+      const box = document.getElementById('awgCodeBox');
+      const title = document.getElementById('awgModalTitle');
+
+      if (b2 && b3) {
+        if (ver === '2.0') {
+          b2.className = 'comic-btn comic-btn-red';
+          b3.className = 'comic-btn';
+        } else {
+          b2.className = 'comic-btn';
+          b3.className = 'comic-btn comic-btn-red';
+        }
+      }
+
+      if (title) title.textContent = `${curPeerName} — AmneziaWG ${ver} (.conf)`;
+      if (box) box.textContent = 'Generating configuration from backend...';
+
+      try {
+        const res = await fetch(`/api/peers/${curPeerId}/awg.conf?version=${ver}`);
+        if (res.ok) {
+          const confText = await res.text();
+          if (box) box.textContent = confText;
+        } else {
+          if (box) box.textContent = '# Failed to fetch config from server';
+        }
+      } catch (err) {
+        if (box) box.textContent = '# Network error fetching config';
+      }
+    }
+
+    function downloadAwgFile() {
+      const url = `/api/peers/${curPeerId}/awg.conf?version=${curVer}`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${curPeerName}_AWG_${curVer.replace('.', '_')}.conf`;
+      a.click();
+      showToast(`*WHOOSH!* AWG ${curVer} .conf downloaded!`, 'success');
+    }
+
+    // Modal: Server Config Editor
+    async function openServerConfigModal(coreId) {
+      curEditingCore = coreId;
+      document.getElementById('serverConfigTextarea').value = 'Loading configuration from host...';
+      document.getElementById('serverConfigModal').classList.add('open');
+
+      try {
+        const res = await fetch(`/api/cores/${coreId}/config`);
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('serverConfigTitle').textContent = `${coreId.toUpperCase()} Server Configuration`;
+          document.getElementById('serverConfigFilepath').textContent = data.config_path;
+          document.getElementById('serverConfigTextarea').value = data.content;
+        } else {
+          let errMsg = 'Failed to load config';
+          try {
+            const err = await res.json();
+            errMsg = err.detail || errMsg;
+          } catch (_) {}
+          showToast(`*LOAD FAILED* ${errMsg}`, 'error');
+        }
+      } catch (err) {
+        document.getElementById('serverConfigTextarea').value = '# Error loading config: ' + err.message;
+        showToast(`*NETWORK ERROR* ${err.message}`, 'error');
+      }
+    }
+
+    async function saveServerConfig() {
+      const text = document.getElementById('serverConfigTextarea').value;
+      try {
+        const res = await fetch(`/api/cores/${curEditingCore}/config`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ config_text: text })
+        });
+        if (res.ok) {
+          closeModal('serverConfigModal');
+          showToast(`*SAVED!* ${curEditingCore.toUpperCase()} config updated!`, 'success');
+          loadCores();
+        } else {
+          let errMsg = 'Failed to save config';
+          try {
+            const err = await res.json();
+            errMsg = err.detail || errMsg;
+          } catch (_) {}
+          showToast(`*SAVE FAILED* ${errMsg}`, 'error');
+        }
+      } catch (err) {
+        showToast(`*NETWORK ERROR* ${err.message || 'Connection failed'}`, 'error');
+      }
+    }
+
+    function copyServerConfig() {
+      const text = document.getElementById('serverConfigTextarea').value;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('*COPIED!* Server configuration copied to clipboard.', 'success');
+      }).catch(err => {
+        showToast(`*COPY FAILED* ${err.message}`, 'error');
+      });
+    }
+
+    async function verifyCore(coreId, coreName) {
+      try {
+        const res = await fetch(`/api/cores/${coreId}/restart`, { method: 'POST' });
+        if (res.ok) {
+          showToast(`*ACTIVE!* ${coreName} daemon verified & running!`, 'success');
+          loadCores();
+        } else {
+          let errMsg = 'Restart failed';
+          try {
+            const err = await res.json();
+            errMsg = err.detail || errMsg;
+          } catch (_) {}
+          showToast(`*RESTART FAILED* ${errMsg}`, 'error');
+        }
+      } catch (err) {
+        showToast(`*NETWORK ERROR* ${err.message || 'Connection failed'}`, 'error');
+      }
+    }
+
+    // Peer Action Helpers
+    function copyMihomoSubUrl(url, name) {
+      navigator.clipboard.writeText(url).then(() => {
+        showToast(`*CLICK!* Mihomo Sub URL copied for ${name}!`, 'success');
+      }).catch(err => {
+        showToast(`*COPY FAILED* ${err.message}`, 'error');
+      });
+    }
+
+    function copySingboxSubUrl(url, name) {
+      navigator.clipboard.writeText(url).then(() => {
+        showToast(`*ZAP!* Sing-box Sub URL copied for ${name}!`, 'success');
+      }).catch(err => {
+        showToast(`*COPY FAILED* ${err.message}`, 'error');
+      });
+    }
+
+    async function togglePeerStatus(peerId, currentStatus) {
+      const newStatus = currentStatus === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED';
+      try {
+        const res = await fetch(`/api/peers/${peerId}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus })
+        });
+        if (res.ok) {
+          const label = newStatus === 'ACTIVE' ? 'Active' : 'Suspended';
+          showToast(`*STATUS* Node is now ${label}.`, 'success');
+          await loadPeers();
+          await loadTelemetry();
+        } else {
+          let errMsg = 'Failed to update status';
+          try {
+            const err = await res.json();
+            errMsg = err.detail || errMsg;
+          } catch (_) {}
+          showToast(`*STATUS FAILED* ${errMsg}`, 'error');
+        }
+      } catch (err) {
+        showToast(`*NETWORK ERROR* ${err.message || 'Connection failed'}`, 'error');
+      }
+    }
+
+    async function deletePeerNode(peerId, peerName) {
+      if (!confirm(`Are you sure you want to revoke & purge '${peerName}'? Access keys will be invalidated.`)) {
+        return;
+      }
+      try {
+        const res = await fetch(`/api/peers/${peerId}`, { method: 'DELETE' });
+        if (res.ok) {
+          showToast(`*REVOKED!* ${peerName} purged from mesh.`, 'success');
+          await loadPeers();
+          await loadTelemetry();
+        } else {
+          let errMsg = 'Failed to delete device';
+          try {
+            const err = await res.json();
+            errMsg = err.detail || errMsg;
+          } catch (_) {}
+          showToast(`*DELETE FAILED* ${errMsg}`, 'error');
+        }
+      } catch (err) {
+        showToast(`*NETWORK ERROR* ${err.message || 'Connection failed'}`, 'error');
+      }
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[tag] || tag));
+    }
+
+    // Initialize Dashboard
+    window.addEventListener('DOMContentLoaded', () => {
+      const hostEl = document.getElementById('brandHost');
+      if (hostEl) hostEl.textContent = window.location.host || '127.0.0.1';
+
+      loadTelemetry();
+      loadPeers();
+      loadCores();
+
+      // Poll telemetry every 5 seconds, peers every 12 seconds
+      setInterval(loadTelemetry, 5000);
+      setInterval(loadPeers, 12000);
+    });
+
+    window.onclick = function(e) {
+      if (e.target.classList.contains('comic-modal-overlay')) {
+        e.target.classList.remove('open');
+      }
+    };
+  </script>
+</body>
+</html>

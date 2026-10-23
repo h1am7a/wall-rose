@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# SQLite databases, WAL and temporary runtime data
+backend/data/*.db
+backend/data/*.db-wal
+backend/data/*.db-shm
+*.db
+*.db-wal
+*.db-shm
+!backend/data/.gitkeep
+
+# Environments
+.env
+.venv/
+venv/
+ENV/
+
+# System and IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
