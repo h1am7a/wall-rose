@@ -1,165 +1,143 @@
-# Wall Rose (ウォール・ローゼ) — Multi-Protocol Personal VPN Gateway
-
 <p align="center">
-  <img src="assets/images/banner.svg" alt="Wall Rose (ウォール・ローゼ) Banner" width="100%">
+  <img src="assets/images/banner.svg" alt="ウォール・ローゼ (Wall Rose)" width="100%">
 </p>
+
+# ウォール・ローゼ (Wall Rose)
 
 <p align="center">
   <a href="#license"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="License MIT"></a>
   <a href="#release"><img src="https://img.shields.io/badge/Version-v1.0.0-yellow.svg?style=flat-square" alt="Version v1.0.0"></a>
-  <a href="#verification-and-test-suite"><img src="https://img.shields.io/badge/Tests-19%20Passed%20(100%25)-brightgreen.svg?style=flat-square" alt="Tests"></a>
+  <a href="#test-suite"><img src="https://img.shields.io/badge/Tests-19%20Passed%20(100%25)-brightgreen.svg?style=flat-square" alt="Tests"></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.110+-009688.svg?style=flat-square" alt="FastAPI"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776AB.svg?style=flat-square" alt="Python"></a>
-  <a href="#supported-operating-systems--network-stack"><img src="https://img.shields.io/badge/Platforms-Ubuntu%2024.04%20%7C%2026.04%20%7C%20Debian%2012-orange.svg?style=flat-square" alt="Platforms"></a>
-  <a href="#tri-protocol-hybrid-mesh"><img src="https://img.shields.io/badge/Protocols-AWG%202.0%2F3.1%20%7C%20Hysteria%202.9-red.svg?style=flat-square" alt="Protocols"></a>
-  <a href="#overview"><img src="https://img.shields.io/badge/Footprint-%3C45%20MB%20RAM-success.svg?style=flat-square" alt="RAM Footprint"></a>
+  <a href="#supported-platforms"><img src="https://img.shields.io/badge/Platforms-Ubuntu%2024.04%20%7C%2026.04%20%7C%20Debian%2012-orange.svg?style=flat-square" alt="Platforms"></a>
+  <a href="#core-protocols"><img src="https://img.shields.io/badge/Protocols-AWG%202.0%2F3.1%20%7C%20Hysteria%202.9-red.svg?style=flat-square" alt="Protocols"></a>
+  <a href="#overview"><img src="https://img.shields.io/badge/RAM-Footprint%20%3C45%20MB-success.svg?style=flat-square" alt="RAM Footprint"></a>
 </p>
 
 ---
 
-## 1. Overview & Architectural Philosophy
+## Overview
 
-**Wall Rose (ウォール・ローゼ)** is an ultra-lightweight, high-performance personal multi-protocol VPN gateway and central management panel. Named after the impenetrable middle wall from *Attack on Titan*, it is engineered from the ground up for environments facing aggressive Deep Packet Inspection (DPI), stateful firewall throttling, and active protocol probing (such as TSPU / RKN in Russia and equivalent national filtering engines).
+Wall Rose (`ウォール・ローゼ`) is a lightweight personal multi-protocol VPN gateway and administrative dashboard built for hostile network environments subject to active Deep Packet Inspection (DPI), stateful throttling, and protocol probing.
 
-Unlike heavy, containerized panels (such as 3X-UI, Marzban, or Hiddify) that consume 350-700 MB of RAM, bundle resource-intensive web servers, and depend on external database daemons, Wall Rose operates on a **micro-footprint Python 3.11+ / FastAPI / SQLite WAL** backend requiring **less than 45 MB of RAM** at idle.
+Unlike multi-tenant web panels (3X-UI, Marzban, Hiddify) that consume 400-700 MB of RAM with external database daemons, Wall Rose uses an embedded FastAPI and SQLite WAL stack with an idle memory footprint under 45 MB.
 
-### Tri-Protocol Hybrid Mesh
-1. **AmneziaWG 3.1 (`awg1`):** Stealth ChaCha20-encrypted header protection (`header-protection-key`) and dynamic packet padding (`Jc`, `Jmin`, `Jmax`, `S1`, `S2`, `H1`-`H4`) for robust anti-DPI survivability against machine-learning traffic classifiers.
-2. **AmneziaWG 2.0 (`awg0`):** Fixed UDP socket architecture providing stable connectivity and backward compatibility for hardware routers (Keenetic, OpenWrt, Mikrotik) and legacy WireGuard implementations.
-3. **Hysteria 2.9+ (`hy2`):** QUIC-based UDP protocol with Salamander obfuscation and randomized Port Hopping (`20000:50000 -> 4433`) for high-loss mobile cellular links where standard UDP is aggressively throttled.
+### Core Protocols
 
-### Key Engineering Attributes
-- **Zero-Downtime Live Kernel Mutation:** Adding, modifying, or suspending peer devices executes directly in Linux kernel memory via `awg set`. Active peer sessions never experience connection drops, socket resets, or packet loss.
-- **Sub-Millisecond HTTP Auth Webhook:** Hysteria 2 authenticates incoming connections via an in-memory TTL authentication cache in `<0.2 ms`, completely protecting the SQLite database from concurrent connection storms.
-- **Manga Comic Tankōbon Edition UI:** A responsive, zero-dependency web interface (~75 KB total, 100% inline SVG vector graphics, local Komika typography) that renders in under 15 ms without CDN dependencies.
-- **Sticky Viewport Header:** Administrative controls, device enrollment triggers, and theme switches remain fixed at the top of the viewport across long scrolling sessions with 30+ peer nodes.
-- **Deterministic Smart Routing:** Dynamic Mihomo (Clash.Meta) and Sing-box subscriptions with deterministic failover (`fallback` with `lazy: true`), automatic DNS leak protection via local Unbound DoT, and rule provider prioritization for domestic direct routing alongside unthrottled international bypasses.
+1. **AmneziaWG 3.1 (`awg1`):** ChaCha20 encrypted header protection (`header-protection-key`) with randomized packet padding (`Jc`, `Jmin`, `Jmax`, `S1`, `S2`, `H1`-`H4`) to resist statistical heuristic classifiers.
+2. **AmneziaWG 2.0 (`awg0`):** Standard WireGuard socket compatibility for hardware routers (Keenetic, OpenWrt, Mikrotik) and legacy clients.
+3. **Hysteria 2.9 (`hy2`):** QUIC-based transport with Salamander obfuscation and randomized port hopping (`20000:50000 -> 4433`) for high-loss, throttled cellular networks.
+
+### Key Characteristics
+
+- **Live Kernel State Mutation:** Device activation and revocation apply directly via `awg set` without interface restarts or session drops.
+- **Fast Auth Webhook:** Hysteria 2 authenticates against an in-memory TTL cache in `<0.2 ms`.
+- **Zero-Dependency Web UI:** Static Manga Comic dashboard (~75 KB, 100% vector SVG, local typography) with zero external CDN calls.
+- **Auto-Detection Device Enrollment:** Single-input enrollment with automatic client and OS fingerprinting on first subscription fetch.
+- **Deterministic Routing:** Mihomo (Clash.Meta) and Sing-box configs with `fallback` failover, local Unbound DoT DNS leak prevention, and split-tunneling rule providers.
 
 ---
 
-## 2. System Architecture
+## Architecture
 
 ```mermaid
 flowchart TD
-    Client["Client Device (30 Peers)\nClash Verge / Mihomo / Sing-box / Amnezia"] -->|Dynamic YAML / JSON / Conf| SubEndpoint["/sub/{token}\nSmart User-Agent Auto-Detection"]
+    Client["Client Device
+Clash / Mihomo / Sing-box / AWG"] -->|GET /sub/{token}| SubEndpoint["/sub/{token}
+Auto User-Agent Detection"]
 
-    subgraph WallRose ["Wall Rose Server Stack (VPS)"]
-        subgraph Frontend ["Zero-Dependency UI (~75 KB)"]
-            UI["Sticky Tankōbon Panel\n(Light / Dark Noir)"]
+    subgraph Server ["Wall Rose VPS Stack"]
+        subgraph UI ["Static Web UI (~75 KB)"]
+            Web["Single-Page Dashboard
+Light / Dark Noir Themes"]
         end
 
         subgraph Backend ["FastAPI Engine (<45 MB RAM)"]
-            API["FastAPI 0.110+ & Async SQLite (WAL)"]
-            AuthCache["In-Memory Auth Cache (<0.2 ms)"]
-            IPAM["Collision-Free IP Allocator\n(10.8.0.x / 10.9.0.x)"]
+            API["REST API and SQLite WAL"]
+            Cache["In-Memory Auth Cache (<0.2 ms)"]
+            IPAM["IP Allocator (10.8.0.x / 10.9.0.x)"]
         end
 
-        subgraph Protocols ["Protocol Daemons"]
-            AWG31["AmneziaWG 3.1 (awg1)\nUDP 51821 | ChaCha20 Headers"]
-            AWG20["AmneziaWG 2.0 (awg0)\nUDP 51820 | Fixed Socket"]
-            HY2["Hysteria 2.9 (hy2)\nUDP 4433 | Port Hop 20000:50000"]
+        subgraph Daemons ["Protocol Daemons"]
+            AWG31["AmneziaWG 3.1 (awg1)
+ChaCha20 Headers | UDP 51821"]
+            AWG20["AmneziaWG 2.0 (awg0)
+Fixed Socket | UDP 51820"]
+            HY2["Hysteria 2.9 (hy2)
+Salamander QUIC | Port Hop 20000:50000"]
         end
 
         subgraph DNS ["DNS Subsystem"]
-            Unbound["Unbound Local DoT Resolver\n10.8.0.1 / 10.9.0.1 (Quad9 / Cloudflare)"]
+            Unbound["Unbound DoT Resolver
+10.8.0.1 / 10.9.0.1 (Quad9 / Cloudflare)"]
         end
     end
 
     SubEndpoint --> Backend
-    API -->|Live awg set| Protocols
-    HY2 -->|POST /api/v1/hysteria/auth| AuthCache
-    Protocols --> Unbound
+    API -->|awg set| Daemons
+    HY2 -->|POST /api/v1/hysteria/auth| Cache
+    Daemons --> Unbound
 ```
 
 ---
 
-## 3. Supported Operating Systems & Network Stack
+## Supported Platforms
 
-| Operating System | Compatibility | Kernel & Tools Support |
+| OS | Status | Notes |
 | :--- | :--- | :--- |
-| **Ubuntu 24.04 LTS (Noble Numbat)** | Native (Recommended) | Official `ppa:amnezia/ppa`, Kernel 6.8+ with native BBRv3 |
-| **Ubuntu 26.04 LTS** | Native | PEP 668 compliant, native DKMS netfilter |
-| **Debian 12 (Bookworm)** | Fully Supported | DKMS module build, Linux 6.1+ LTS, `iptables-persistent` |
+| **Ubuntu 24.04 LTS** | Recommended | Native `ppa:amnezia/ppa`, Kernel 6.8+ BBRv3 |
+| **Ubuntu 26.04 LTS** | Supported | PEP 668 compliant, native netfilter DKMS |
+| **Debian 12 (Bookworm)** | Supported | DKMS module build, Linux 6.1+ LTS, iptables-persistent |
 
 ---
 
-## 4. Quick Automated Installation (1-Line Deployment)
+## Deployment
 
-On a freshly installed Ubuntu or Debian server, run:
+Deploy on a clean Ubuntu/Debian instance:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wallrose/wallrose/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/<user>/wall-rose/main/install.sh | sudo bash
 ```
 
-### What the Automated Installer Configures:
-1. Validates root privileges and primary WAN interface.
-2. Applies BBR congestion control and UDP buffer scaling in `/etc/sysctl.d/99-wallrose.conf`.
-3. Installs `amneziawg`, `amneziawg-dkms`, and `amneziawg-tools`.
-4. Deploys the static Hysteria 2 binary with self-signed ECDSA certificate and IP SAN.
-5. Configures an Unbound local DNS-over-TLS (DoT) resolver on `10.8.0.1:53` and `10.9.0.1:53` to prevent DNS leaks.
-6. Sets up `iptables` NAT masquerading, TCP MSS Clamping (`clamp-mss-to-pmtu`), and UDP port hopping (`20000:50000 -> 4433`).
-7. Initializes the Python virtual environment (`/opt/wallrose/venv`) and provisions SQLite in WAL mode.
-8. Registers and starts `systemd` units (`wallrose-panel.service`, `hysteria-server.service`).
-9. Generates secure master admin credentials and outputs web dashboard access links.
+The script performs the following setup:
+1. Enables BBR congestion control and tunes UDP socket buffers in `/etc/sysctl.d/99-wallrose.conf`.
+2. Installs `amneziawg`, `amneziawg-dkms`, and `amneziawg-tools`.
+3. Downloads the Hysteria 2 static binary and creates an ECDSA self-signed certificate with IP SAN.
+4. Configures Unbound DNS-over-TLS on `10.8.0.1:53` and `10.9.0.1:53`.
+5. Configures `iptables` NAT masquerading, MSS clamping, and port hopping (`20000:50000 -> 4433`).
+6. Creates the Python virtual environment and starts systemd units (`wallrose-panel.service`, `hysteria-server.service`).
 
 ---
 
-## 5. Formal REST API Documentation (OpenAPI 3.1)
+## REST API Reference
 
-Wall Rose provides complete OpenAPI 3.1 technical specifications:
-- **Interactive Swagger UI:** `http://<SERVER_IP>:8000/docs`
-- **ReDoc Technical Specification:** `http://<SERVER_IP>:8000/redoc`
-- **Machine-Readable OpenAPI JSON:** `http://<SERVER_IP>:8000/openapi.json`
+Interactive API documentation is served at `/docs` (Swagger) and `/redoc` (ReDoc).
 
-### API Endpoints Reference
-
-#### 1. Device & Peer Management (`/api/peers`)
-| Method | Endpoint | Description |
+| Endpoint | Method | Function |
 | :--- | :--- | :--- |
-| `GET` | `/api/peers` | List all registered devices with live bandwidth, handshake status, and state. |
-| `POST` | `/api/peers` | Enroll a new device (allocates collision-free IPs, generates x25519 keys, sets live kernel AWG). |
-| `GET` | `/api/peers/{id}` | Retrieve comprehensive technical specs, raw private/public keys, and subscription tokens. |
-| `PUT` | `/api/peers/{id}` | Update device metadata (name, platform descriptor). |
-| `PATCH` | `/api/peers/{id}/status` | Toggle node status (`ACTIVE` vs `SUSPENDED`). Removes/adds live in kernel. |
-| `DELETE` | `/api/peers/{id}` | Revoke credentials, purge from live AWG interfaces, and release allocated IP addresses. |
-| `GET` | `/api/peers/{id}/awg.conf` | Download compiled AmneziaWG configuration file (toggleable version: `3.1` or `2.0`). |
-
-#### 2. Protocol Core Control (`/api/cores`)
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/cores` | Health status and uptime for `awg0`, `awg1`, and `hy2`. |
-| `GET` | `/api/cores/{core_id}/config` | Read raw daemon configuration file from `/etc/...`. |
-| `PUT` | `/api/cores/{core_id}/config` | Update configuration file on disk and prepare daemon reload. |
-| `POST` | `/api/cores/{core_id}/restart` | Gracefully restart the protocol systemd service unit. |
-
-#### 3. Host Telemetry (`/api/telemetry`)
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/telemetry` | Real-time vitals: CPU load %, RAM used/total, peak WAN network throughput, and connected peer counts. |
-
-#### 4. Subscription Delivery (`/sub/{token}`)
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/sub/{token}` | Smart delivery endpoint. Returns Mihomo YAML to Clash clients, Sing-box JSON to Sing-box, or mobile QR landing page to web browsers. Injects `Subscription-Userinfo` header. |
-
-#### 5. Hysteria 2 Internal Integration (`/api/v1/hysteria`)
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `POST` | `/api/v1/hysteria/auth` | Microsecond HTTP auth webhook queried by Hysteria 2 daemon. Evaluates in memory (<0.2 ms). |
-| `POST` | `/api/v1/hysteria/sync-traffic` | Synchronizes bandwidth usage from `127.0.0.1:9999` to SQLite database. |
-
-#### 6. System Backup & Restore (`/api/backup`)
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/backup/export` | Creates a point-in-time WAL-safe backup (`VACUUM INTO`) and streams `.tar.gz` archive. |
-| `POST` | `/api/backup/restore` | Accepts `.tar.gz` archive, verifies path traversal integrity, and restores database. |
+| `/api/peers` | `GET` | List all peers with live handshake, transfer stats, and state |
+| `/api/peers` | `POST` | Enroll device (allocates IP, generates x25519 keys, applies `awg set`) |
+| `/api/peers/{id}` | `GET` | Peer detail, private keys, subscription tokens |
+| `/api/peers/{id}` | `PUT` | Update peer name |
+| `/api/peers/{id}/status` | `PATCH` | Toggle active/suspended state in kernel live |
+| `/api/peers/{id}` | `DELETE` | Revoke credentials, remove from kernel, free IP address |
+| `/api/peers/{id}/awg.conf` | `GET` | Download WireGuard configuration (AWG 3.1 or 2.0 format) |
+| `/api/cores` | `GET` | Daemon statuses (`awg0`, `awg1`, `hy2`) |
+| `/api/cores/{id}/config` | `GET`, `PUT` | Read or update daemon config file |
+| `/api/cores/{id}/restart` | `POST` | Restart daemon systemd unit |
+| `/api/telemetry` | `GET` | Host CPU, RAM, WAN throughput, active peer counts |
+| `/sub/{token}` | `GET` | Smart subscription endpoint (serves Mihomo YAML or Sing-box JSON) |
+| `/api/v1/hysteria/auth` | `POST` | Hysteria 2 HTTP auth webhook (in-memory lookup, `<0.2 ms`) |
+| `/api/v1/hysteria/sync-traffic` | `POST` | Sync bandwidth counters from Hysteria 2 to SQLite |
+| `/api/backup/export` | `GET` | Download point-in-time database snapshot (`.tar.gz`) |
+| `/api/backup/restore` | `POST` | Restore database snapshot with path traversal safeguards |
 
 ---
 
-## 6. Smart Routing & Subscription Engine
+## Routing and Failover
 
-### 6.1. Deterministic Failover Strategy
-Wall Rose implements a **`fallback`** group with **`lazy: true`** rather than jitter-prone `url-test`:
+Mihomo subscriptions use deterministic `fallback` with `lazy: true`:
 
 ```yaml
 proxy-groups:
@@ -169,111 +147,81 @@ proxy-groups:
     interval: 300
     lazy: true
     proxies:
-      - "AWG-3.1-Primary"       # ChaCha20 encrypted headers (Stealth anti-DPI)
-      - "AWG-2.0-Secondary"     # WireGuard static socket (Broad compatibility)
-      - "Hy2-Salamander-Backup" # QUIC + Salamander Obfs + Port Hop 20000:50000
+      - "AWG-3.1-Primary"       # ChaCha20 headers (DPI protection)
+      - "AWG-2.0-Secondary"     # Static socket (Broad compatibility)
+      - "Hy2-Salamander-Backup" # QUIC + Salamander Obfs + Port Hop
 ```
 
-### 6.2. Strict Rule-Set Priority Ordering
-```yaml
-rules:
-  # 1. Local Network & Metadata Protection
-  - GEOIP,private,DIRECT,no-resolve
-
-  # 2. Critical Traffic Bypasses (Must take precedence over geoip:ru)
-  - RULE-SET,youtube,AUTO-FAILOVER     # Bypasses local throttled ISP caches
-  - RULE-SET,discord,AUTO-FAILOVER     # Voice UDP gateways
-  - RULE-SET,telegram,AUTO-FAILOVER    # Bypasses regional carrier throttling
-  - GEOIP,telegram,AUTO-FAILOVER,no-resolve
-
-  # 3. RKN Registry Blocked Sites (Antifilter Community List)
-  - RULE-SET,antifilter,AUTO-FAILOVER  # Catches blocked Russian & foreign domains
-
-  # 4. Russian Domestic Direct Bypass
-  - RULE-SET,category-ru,DIRECT        # Sberbank, Gosuslugi, Avito, Kinopoisk
-  - DOMAIN-SUFFIX,ru,DIRECT
-  - DOMAIN-SUFFIX,xn--p1ai,DIRECT
-  - RULE-SET,geoip-ru,DIRECT
-
-  # 5. Global Fallthrough
-  - MATCH,AUTO-FAILOVER                # Google, Gemini, AI tools, international web
-```
+Priority order:
+1. `private` IP CIDR ranges -> `DIRECT`
+2. Blocked / throttled services (Antifilter, YouTube, Discord, Telegram) -> `AUTO-FAILOVER`
+3. Domestic traffic (`category-ru`, `.ru`, `.xn--p1ai`, `geoip:ru`) -> `DIRECT`
+4. Global traffic -> `AUTO-FAILOVER`
 
 ---
 
-## 7. Client Setup Guide
+## Client Setup
 
-### Clash Verge Rev / Mihomo Party / Flclash
-1. In the Wall Rose panel, click **Mihomo Sub** on your device card.
-2. In Clash Verge Rev, navigate to **Profiles** -> **Import from URL**.
-3. Paste the URL: `http://<SERVER_IP>:8000/sub/<YOUR_TOKEN>`
-4. Set **Update Interval** to `24 hours`. Click **Save & Import**.
+### Mihomo / Clash Verge Rev / Flclash
+1. In the dashboard, click **Mihomo Sub** on the device card.
+2. In the client, add profile via URL: `http://<SERVER_IP>:8000/sub/<TOKEN>`
+3. Set update interval to 24 hours.
 
-### Sing-box (iOS / Android / macOS)
-1. In the Wall Rose panel, click **Sing-box** on your device card.
-2. In the Sing-box client, add a new remote profile with the URL: `http://<SERVER_IP>:8000/sub/<YOUR_TOKEN>?format=json`
+### Sing-box (iOS, Android, macOS, Linux)
+1. In the dashboard, click **Sing-box** on the device card.
+2. Add remote profile with URL: `http://<SERVER_IP>:8000/sub/<TOKEN>?format=json`
 
 ### Official AmneziaWG Client
-1. Click **AWG .conf** on your device card.
-2. Select **AWG 3.1** (for anti-DPI stealth) or **AWG 2.0** (for routers).
-3. Click **Download .conf** and import directly into the AmneziaWG app.
+1. Click **AWG .conf** on the device card.
+2. Select version (**AWG 3.1** for stealth or **AWG 2.0** for routers) and download `.conf`.
 
 ---
 
-## 8. Development & Manual Local Setup
+## Development
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/wallrose/wallrose.git
-cd wallrose/vpn-panel
+# Clone repository
+git clone https://github.com/<user>/wall-rose.git
+cd wall-rose/vpn-panel
 
-# 2. Create Python virtual environment
+# Setup environment
 python3 -m venv venv
-source venv/bin/activate  # Or .\venv\Scripts\Activate.ps1 on Windows
-
-# 3. Install production dependencies
+source venv/bin/activate  # Windows: .\venv\Scripts\Activate.ps1
 pip install -r backend/requirements.txt
 
-# 4. Run automated test suite
+# Run test suite
 pytest backend/tests -v
 
-# 5. Start development server
+# Start development server
 cd backend
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Open `http://localhost:8000/` in your browser to view the Manga Comic dashboard, or `http://localhost:8000/docs` to view the interactive OpenAPI specification.
+---
+
+## Security
+
+- **Safe Subprocess Calls:** System utilities are invoked strictly via list arguments (`shell=False`) to avoid shell interpolation.
+- **Path Traversal Protection:** Tar extraction checks target members with `os.path.commonpath()` and uses Python 3.12 `filter="data"`.
+- **Query Parameterization:** All database operations run through SQLAlchemy 2.0 async ORM queries with bound parameters.
+- **Token Entropy:** Subscription tokens are generated using `secrets.token_urlsafe(32)` (256-bit CSPRNG entropy).
+- **Subnet Isolation:** Forwarding rules isolate client subnets (`10.8.0.0/24`, `10.9.0.0/24`) to block peer-to-peer traversal.
 
 ---
 
-## 9. Security & Hardening Best Practices
-
-- **Zero Command-Line Shell Execution:** All system interactions via `core_manager.py` invoke `subprocess.run()` strictly using argument lists (`shell=False`), preventing shell metacharacter injection.
-- **TarSlip & Path Traversal Prevention:** Archive extraction in `backup.py` checks each member's target destination with `os.path.commonpath()` and employs Python 3.12 `filter="data"` extraction policies.
-- **SQL Injection Immunity:** Data persistence operates solely through SQLAlchemy 2.0 async ORM queries with parameterized bound variables.
-- **Cryptographic High Entropy:** Subscription tokens utilize 256 bits of CSPRNG entropy (`secrets.token_urlsafe(32)`), rendering brute-force enumeration mathematically infeasible.
-- **Client Network Isolation:** Forwarding rules strictly isolate client IP subnets (`10.8.0.0/24`, `10.9.0.0/24`) preventing lateral node traversal.
-- **Fail2ban Compatibility:** Authentication logs structured for straightforward parsing by standard intrusion prevention systems.
-
----
-
-## 10. Verification and Test Suite
-
-The automated test suite verifies all system components:
+## Test Suite
 
 ```bash
 cd vpn-panel/backend
 pytest tests -v
 ```
 
-Execution Summary:
-- `test_api.py`: Full gateway end-to-end lifecycle verification.
-- `test_api_suite.py`: Authentication, subscriptions, cores, telemetry, and backup/restore.
-- `test_units.py`: x25519 keypair generation, PSK randomness, IPAM pool allocation, Hysteria cache latency, and config parsers.
-- **Result:** 19 passed in ~3 seconds (100% test coverage).
+All 19 test cases verify:
+- API endpoints: peer lifecycle, core management, telemetry, backups.
+- Unit logic: x25519 key generation, IPAM allocation, Hysteria auth cache latency, configuration builders.
 
 ---
 
-## 11. License
+## License
 
-Released under the **MIT License**. Engineered for privacy, personal autonomy, and unrestricted open networking.
+MIT License. See [LICENSE](LICENSE) for details.

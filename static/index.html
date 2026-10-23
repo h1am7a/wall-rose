@@ -1850,7 +1850,7 @@ proxies:
   # 1. AWG 3.1 Primary (ChaCha20 Header Protection)
   - name: "AWG-3.1"
     type: wireguard
-    server: 185.196.220.45
+    server: 203.0.113.1
     port: 51821
     ip: 10.9.0.2
     public-key: "dddddd_AWG31_ServerKey_DDDDDD="
@@ -1868,7 +1868,7 @@ proxies:
   # 2. AWG 2.0 Secondary (Fixed UDP Socket)
   - name: "AWG-2.0"
     type: wireguard
-    server: 185.196.220.45
+    server: 203.0.113.1
     port: 51820
     ip: 10.8.0.2
     public-key: "bbbbbb_AWG20_ServerKey_BBBBBB="
@@ -1886,7 +1886,7 @@ proxies:
   # 3. Hysteria 2 Disaster Recovery (Salamander + Port Hopping)
   - name: "Hy2-Salamander"
     type: hysteria2
-    server: 185.196.220.45
+    server: 203.0.113.1
     ports: 20000-50000
     password: "tok_client_password_secret"
     obfs: salamander
