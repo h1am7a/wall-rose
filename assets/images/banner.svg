@@ -14,41 +14,41 @@
         font-family: 'Komika Axis', 'Yu Gothic', 'Hiragino Sans', 'Meiryo', 'Noto Sans JP', sans-serif;
       }
     </style>
-    <pattern id="screentone" width="10" height="10" patternUnits="userSpaceOnUse">
-      <circle cx="2" cy="2" r="1.2" fill="rgba(255, 255, 255, 0.07)"/>
+    <pattern id="screentone-light" width="10" height="10" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="rgba(20, 20, 22, 0.06)"/>
     </pattern>
-    <filter id="inkShadow" x="-10%" y="-10%" width="130%" height="130%">
-      <feDropShadow dx="4" dy="4" stdDeviation="0" flood-color="#000000"/>
+    <filter id="inkShadow-light" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="3.5" dy="3.5" stdDeviation="0" flood-color="#141416"/>
     </filter>
   </defs>
 
-  <!-- Background Canvas -->
-  <rect width="960" height="170" fill="#141418"/>
-  <rect width="960" height="170" fill="url(#screentone)"/>
+  <!-- Background Paper Canvas -->
+  <rect width="960" height="170" fill="#f8f6f0"/>
+  <rect width="960" height="170" fill="url(#screentone-light)"/>
   
   <!-- Outer Ink Borders -->
-  <rect x="4" y="4" width="952" height="162" fill="none" stroke="#2a2a34" stroke-width="2"/>
-  <rect x="10" y="10" width="940" height="150" fill="none" stroke="#e2e2e8" stroke-width="2.5"/>
+  <rect x="4" y="4" width="952" height="162" fill="none" stroke="#d5d2ca" stroke-width="2"/>
+  <rect x="10" y="10" width="940" height="150" fill="none" stroke="#141416" stroke-width="2.5"/>
 
   <!-- Left: Red Hanko Stamp (Vertically Centered: y=41, h=88, center=85) -->
   <g transform="translate(46, 41)">
-    <g filter="url(#inkShadow)">
-      <rect x="0" y="0" width="88" height="88" rx="14" fill="#d90429" stroke="#ffffff" stroke-width="3"/>
+    <g filter="url(#inkShadow-light)">
+      <rect x="0" y="0" width="88" height="88" rx="14" fill="#d90429" stroke="#141416" stroke-width="2.5"/>
       <text x="44" y="64" class="font-jp" font-weight="900" font-size="52" fill="#ffffff" text-anchor="middle">ロ</text>
     </g>
   </g>
 
   <!-- Middle: Japanese Title (Vertically Centered: baseline y=98) -->
-  <text x="156" y="98" class="font-jp" font-weight="900" font-size="42" fill="#ffffff" letter-spacing="2">ウォール・ローゼ</text>
+  <text x="156" y="98" class="font-jp" font-weight="900" font-size="42" fill="#141416" letter-spacing="2">ウォール・ローゼ</text>
 
   <!-- Subtle Manga Vertical Divider -->
-  <line x1="504" y1="36" x2="504" y2="134" stroke="#2c2c38" stroke-width="2" stroke-dasharray="4 4"/>
+  <line x1="504" y1="36" x2="504" y2="134" stroke="#d0ceca" stroke-width="2" stroke-dasharray="4 4"/>
 
   <!-- Right: Stacked Wall Rose + Version on Top, 3 Protocols in Row Underneath -->
   <g transform="translate(534, 40)">
     <!-- Top Row: WALL ROSE + Version Badge -->
     <g transform="translate(0, 0)">
-      <text x="0" y="24" class="font-comic" font-size="22" fill="#f0f0f5" letter-spacing="1.5">WALL ROSE</text>
+      <text x="0" y="24" class="font-comic" font-size="22" fill="#141416" letter-spacing="1.5">WALL ROSE</text>
       
       <!-- Version Badge (tilted 2deg) -->
       <g transform="translate(150, 4) rotate(2)">
@@ -60,16 +60,22 @@
     <!-- Bottom Row: The 3 Protocols in Sequence -->
     <g transform="translate(0, 48)">
       <!-- Pill 1: AWG 3.1 -->
-      <rect x="0" y="0" width="94" height="26" rx="4" fill="#1b1b22" stroke="#48cae4" stroke-width="1.5"/>
-      <text x="47" y="18" class="font-comic" font-size="11.5" fill="#48cae4" text-anchor="middle" letter-spacing="0.5">AWG 3.1</text>
+      <g filter="url(#inkShadow-light)">
+        <rect x="0" y="0" width="94" height="26" rx="4" fill="#ffffff" stroke="#141416" stroke-width="1.8"/>
+        <text x="47" y="18" class="font-comic" font-size="11.5" fill="#0077b6" text-anchor="middle" letter-spacing="0.5">AWG 3.1</text>
+      </g>
 
       <!-- Pill 2: AWG 2.0 -->
-      <rect x="104" y="0" width="94" height="26" rx="4" fill="#1b1b22" stroke="#ffb703" stroke-width="1.5"/>
-      <text x="151" y="18" class="font-comic" font-size="11.5" fill="#ffb703" text-anchor="middle" letter-spacing="0.5">AWG 2.0</text>
+      <g filter="url(#inkShadow-light)">
+        <rect x="106" y="0" width="94" height="26" rx="4" fill="#ffffff" stroke="#141416" stroke-width="1.8"/>
+        <text x="153" y="18" class="font-comic" font-size="11.5" fill="#b37400" text-anchor="middle" letter-spacing="0.5">AWG 2.0</text>
+      </g>
 
       <!-- Pill 3: Hysteria 2.0 -->
-      <rect x="208" y="0" width="124" height="26" rx="4" fill="#1b1b22" stroke="#ef233c" stroke-width="1.5"/>
-      <text x="270" y="18" class="font-comic" font-size="11.5" fill="#ef233c" text-anchor="middle" letter-spacing="0.5">HYSTERIA 2.0</text>
+      <g filter="url(#inkShadow-light)">
+        <rect x="212" y="0" width="124" height="26" rx="4" fill="#ffffff" stroke="#141416" stroke-width="1.8"/>
+        <text x="274" y="18" class="font-comic" font-size="11.5" fill="#d90429" text-anchor="middle" letter-spacing="0.5">HYSTERIA 2.0</text>
+      </g>
     </g>
   </g>
 </svg>

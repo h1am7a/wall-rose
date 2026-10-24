@@ -1,9 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/images/banner_dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="assets/images/banner_light.svg">
-    <img alt="ウォール・ローゼ (Wall Rose)" src="assets/images/banner_dark.svg" width="100%">
-  </picture>
+  <img src="assets/images/banner.svg" alt="ウォール・ローゼ (Wall Rose)" width="100%">
 </p>
 
 # ウォール・ローゼ (Wall Rose)
