@@ -2315,6 +2315,75 @@ rules:
     let curVer = '3.1';
     let curEditingCore = 'awg0';
 
+    // =========================================================================
+    // ADMIN AUTHENTICATION GATEWAY
+    // =========================================================================
+
+    async function checkAuthAndInit() {
+      try {
+        const res = await fetch('/api/auth/status');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated) {
+            const modal = document.getElementById('authModal');
+            if (modal) modal.classList.remove('open');
+            loadPeers();
+            loadTelemetry();
+            loadCores();
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Auth status check error:', e);
+      }
+      const modal = document.getElementById('authModal');
+      if (modal) modal.classList.add('open');
+      setTimeout(() => {
+        const inp = document.getElementById('adminPasswordInput');
+        if (inp) inp.focus();
+      }, 150);
+    }
+
+    async function submitAdminLogin() {
+      const inp = document.getElementById('adminPasswordInput');
+      const pwd = inp ? inp.value.trim() : '';
+      if (!pwd) {
+        showToast('Password cannot be empty', 'error');
+        return;
+      }
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username: 'admin', password: pwd})
+        });
+        if (res.ok) {
+          showToast('*AUTHORIZED!* Welcome back, Commander.', 'success');
+          const modal = document.getElementById('authModal');
+          if (modal) modal.classList.remove('open');
+          inp.value = '';
+          loadPeers();
+          loadTelemetry();
+          loadCores();
+        } else {
+          showToast('*ACCESS DENIED* Invalid master password', 'error');
+          if (inp) inp.select();
+        }
+      } catch (e) {
+        showToast('Network error during login: ' + e.message, 'error');
+      }
+    }
+
+    async function logoutAdmin() {
+      try {
+        await fetch('/api/auth/logout', {method: 'POST'});
+      } catch(e) {}
+      showToast('*LOCKED* Session terminated.', 'success');
+      const peerList = document.getElementById('peerList');
+      if (peerList) peerList.innerHTML = '';
+      checkAuthAndInit();
+    }
+
     async function manualRefreshMetrics() {
       const btn = document.getElementById('refreshBtn');
       if (btn) btn.style.transform = 'scale(0.90)';
