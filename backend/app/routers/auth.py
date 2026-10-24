@@ -30,14 +30,13 @@ async def admin_login(payload: AdminLoginRequest, request: Request, response: Re
                 detail="Too many failed login attempts. Security lockout active for 5 minutes."
             )
 
-    provided_user = payload.username if payload.username is not None else settings.ADMIN_USERNAME
-    if provided_user != settings.ADMIN_USERNAME or payload.password != settings.ADMIN_PASSWORD:
+    if payload.password != settings.ADMIN_PASSWORD:
         if client_ip not in FAILED_ATTEMPTS:
             FAILED_ATTEMPTS[client_ip] = []
         FAILED_ATTEMPTS[client_ip].append(now)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or password"
+            detail="Invalid master password"
         )
 
     # Authentication successful: clear failed attempts
@@ -60,8 +59,7 @@ async def admin_login(payload: AdminLoginRequest, request: Request, response: Re
         ok=True,
         token=token,
         access_token=token,
-        token_type="bearer",
-        username=payload.username or settings.ADMIN_USERNAME
+        token_type="bearer"
     )
 
 @router.post(
@@ -96,6 +94,5 @@ async def check_auth_status(request: Request):
 
     is_valid = verify_admin_session(token)
     return AdminSessionStatus(
-        authenticated=is_valid,
-        username=settings.ADMIN_USERNAME if is_valid else None
+        authenticated=is_valid
     )

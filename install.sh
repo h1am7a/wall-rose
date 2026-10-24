@@ -410,7 +410,6 @@ if ss -tuln 2>/dev/null | grep -q ":${PANEL_PORT}\b"; then
     log_warn "Port ${PANEL_PORT} is currently in use by another process! You can override it with: PORT=8080 bash install.sh"
 fi
 
-ADMIN_USER="${ADMIN_USERNAME:-admin}"
 if [ -z "${ADMIN_PASSWORD:-}" ]; then
     # Generate 16-character cryptographically secure master password
     ADMIN_PASS=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 16)
@@ -423,7 +422,6 @@ cat > "$INSTALL_DIR/backend/.env" << EOF
 HOST=0.0.0.0
 PORT=${PANEL_PORT}
 SERVER_PUBLIC_IP=${PUBLIC_IP}
-ADMIN_USERNAME=${ADMIN_USER}
 ADMIN_PASSWORD=${ADMIN_PASS}
 SECRET_KEY=${SECRET_TOKEN}
 HY2_OBFS_PASSWORD=${GECKO_OBFS_KEY}

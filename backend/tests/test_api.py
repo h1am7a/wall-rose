@@ -13,7 +13,7 @@ async def test_full_gateway_lifecycle():
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         # Authenticate as Administrator
         from app.config import settings
-        login_res = await ac.post("/api/auth/login", json={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD})
+        login_res = await ac.post("/api/auth/login", json={"password": settings.ADMIN_PASSWORD})
         assert login_res.status_code == 200
 
         # 2. Check Telemetry

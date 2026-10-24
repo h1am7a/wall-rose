@@ -14,14 +14,14 @@ async def test_auth_router():
         # 1. Invalid login
         res_bad = await client.post(
             "/api/auth/login",
-            json={"username": "admin", "password": "wrong_password"}
+            json={"password": "wrong_password"}
         )
         assert res_bad.status_code == 401
 
         # 2. Valid login
         res_ok = await client.post(
             "/api/auth/login",
-            json={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD}
+            json={"password": settings.ADMIN_PASSWORD}
         )
         assert res_ok.status_code == 200
         data = res_ok.json()
@@ -58,7 +58,7 @@ async def test_peer_and_subscription_flow():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Authenticate
-        await client.post("/api/auth/login", json={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD})
+        await client.post("/api/auth/login", json={"password": settings.ADMIN_PASSWORD})
         # 1. List initial peers
         res_list = await client.get("/api/peers")
         assert res_list.status_code == 200
@@ -148,7 +148,7 @@ async def test_cores_and_config_editor():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Authenticate
-        await client.post("/api/auth/login", json={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD})
+        await client.post("/api/auth/login", json={"password": settings.ADMIN_PASSWORD})
         # 1. List cores
         res_cores = await client.get("/api/cores")
         assert res_cores.status_code == 200
@@ -184,7 +184,7 @@ async def test_telemetry_accuracy():
         assert res_unauth.status_code == 401
 
         # 2. Authenticate
-        await client.post("/api/auth/login", json={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD})
+        await client.post("/api/auth/login", json={"password": settings.ADMIN_PASSWORD})
 
         # 3. Authenticated request succeeds
         res = await client.get("/api/telemetry")
@@ -206,7 +206,7 @@ async def test_backup_and_recovery():
         assert res_unauth.status_code == 401
 
         # 2. Authenticate
-        await client.post("/api/auth/login", json={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD})
+        await client.post("/api/auth/login", json={"password": settings.ADMIN_PASSWORD})
 
         # 3. Export backup archive
         res_backup = await client.get("/api/backup/export")
@@ -263,11 +263,11 @@ async def test_anti_bruteforce_lockout():
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # 5 failed attempts
         for i in range(5):
-            res = await client.post("/api/auth/login", json={"username": "admin", "password": f"wrong_{i}"})
+            res = await client.post("/api/auth/login", json={"password": f"wrong_{i}"})
             assert res.status_code == 401, f"Attempt {i+1} should return 401"
 
         # 6th attempt should be blocked by rate limiter with 429
-        res_blocked = await client.post("/api/auth/login", json={"username": "admin", "password": "any_password"})
+        res_blocked = await client.post("/api/auth/login", json={"password": "any_password"})
         assert res_blocked.status_code == 429, f"6th attempt should return 429, got {res_blocked.status_code}"
         assert "Too many failed login attempts" in res_blocked.json()["detail"]
 

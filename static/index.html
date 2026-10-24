@@ -1925,12 +1925,11 @@ rules:
 
     function copyCodeFrom(id) {
       const el = document.getElementById(id);
-      if (!el) return;
-      navigator.clipboard.writeText(el.textContent).then(() => {
-        showToast('*KA-CHING!* Copied to clipboard!', 'success');
-      }).catch(err => {
-        showToast(`*COPY FAILED* ${err.message}`, 'error');
-      });
+      if (!el) {
+        showToast('*COPY FAILED* Content not found', 'error');
+        return;
+      }
+      copyToClipboard(el.textContent, '*KA-CHING!* Copied to clipboard!');
     }
 
     async function openYamlPreview() {
@@ -2042,7 +2041,7 @@ rules:
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({username: 'admin', password: pwd})
+          body: JSON.stringify({password: pwd})
         });
         if (res.ok) {
           showToast('*AUTHORIZED!* Welcome back, Commander.', 'success');
@@ -2195,13 +2194,13 @@ rules:
         grid.innerHTML = peersData.map(peer => {
           let sfxBadge = '*ACTIVE*';
           let sfxClass = 'st-active';
-          let statusBadge = 'ONLINE';
-          let statusClass = 'st-online';
+          let statusBadge = peer.is_online ? 'ONLINE' : 'OFFLINE';
+          let statusClass = peer.is_online ? 'st-online' : 'st-offline';
 
           if (peer.status === 'SUSPENDED') {
             sfxBadge = '*SUSPENDED*';
             sfxClass = 'st-offline';
-            statusBadge = 'SUSPENDED';
+            statusBadge = 'OFFLINE';
             statusClass = 'st-offline';
           } else if (!peer.is_online) {
             sfxBadge = '*STANDBY*';
@@ -2237,7 +2236,7 @@ rules:
                   </div>
                   <div class="spec-item">
                     <span class="spec-key">Hysteria 2:</span>
-                    <span class="spec-val font-mono" style="cursor: pointer; font-family: var(--font-tech);" title="Click to copy password" onclick="navigator.clipboard.writeText('${escapeHtml(peer.hy2_pass)}'); showToast('*COPIED!* Hysteria 2 password copied.', 'success');">${escapeHtml(peer.hy2_pass)}</span>
+                    <span class="spec-val font-mono" style="cursor: pointer; font-family: var(--font-tech);" title="Click to copy password" onclick="copyToClipboard('${escapeHtml(peer.hy2_pass)}', '*COPIED!* Hysteria 2 password copied.');">${escapeHtml(peer.hy2_pass)}</span>
                   </div>
                   <div class="spec-item">
                     <span class="spec-key">Total Traffic:</span>
@@ -2454,11 +2453,7 @@ rules:
 
     function copyServerConfig() {
       const text = document.getElementById('serverConfigTextarea').value;
-      navigator.clipboard.writeText(text).then(() => {
-        showToast('*COPIED!* Server configuration copied to clipboard.', 'success');
-      }).catch(err => {
-        showToast(`*COPY FAILED* ${err.message}`, 'error');
-      });
+      copyToClipboard(text, '*COPIED!* Server configuration copied to clipboard.');
     }
 
     async function verifyCore(coreId, coreName) {
@@ -2480,21 +2475,64 @@ rules:
       }
     }
 
+    // Universal Robust Clipboard Helper (Secure Context + HTTP fallback)
+    async function copyToClipboard(text, successMsg = '*COPIED!* Copied to clipboard.') {
+      if (!text) {
+        showToast('*COPY ERROR* No content to copy!', 'error');
+        return false;
+      }
+
+      // Try modern navigator.clipboard if in secure context
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(text);
+          showToast(successMsg, 'success');
+          return true;
+        } catch (e) {
+          console.warn('navigator.clipboard failed, trying fallback...', e);
+        }
+      }
+
+      // Fallback for non-secure HTTP contexts (VPS IP:8000)
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.top = '-9999px';
+        textArea.style.left = '-9999px';
+        textArea.style.opacity = '0';
+        textArea.setAttribute('readonly', '');
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (successful) {
+          showToast(successMsg, 'success');
+          return true;
+        }
+      } catch (err) {
+        console.warn('execCommand copy failed:', err);
+      }
+
+      // Fallback prompt for maximum reliability
+      try {
+        window.prompt('Copy configuration link:', text);
+        showToast('*CLIPBOARD READY* Link opened to copy.', 'info');
+        return true;
+      } catch (_) {
+        showToast('*COPY FAILED* Could not access clipboard', 'error');
+        return false;
+      }
+    }
+
     // Peer Action Helpers
     function copyMihomoSubUrl(url, name) {
-      navigator.clipboard.writeText(url).then(() => {
-        showToast(`*CLICK!* Mihomo Sub URL copied for ${name}!`, 'success');
-      }).catch(err => {
-        showToast(`*COPY FAILED* ${err.message}`, 'error');
-      });
+      copyToClipboard(url, `*CLICK!* Mihomo Sub URL copied for ${name}!`);
     }
 
     function copySingboxSubUrl(url, name) {
-      navigator.clipboard.writeText(url).then(() => {
-        showToast(`*ZAP!* Sing-box Sub URL copied for ${name}!`, 'success');
-      }).catch(err => {
-        showToast(`*COPY FAILED* ${err.message}`, 'error');
-      });
+      copyToClipboard(url, `*ZAP!* Sing-box Sub URL copied for ${name}!`);
     }
 
     async function togglePeerStatus(peerId, currentStatus) {

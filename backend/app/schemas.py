@@ -8,8 +8,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class AdminLoginRequest(BaseModel):
     """Admin authentication credentials payload."""
-    username: Optional[str] = Field(default="admin", description="Administrator username (optional, defaults to admin)", examples=["admin"])
-    password: str = Field(..., description="Master administrator password", examples=["wallrose2026"])
+    password: str = Field(..., description="Master administrator key / password", examples=["wallrose2026"])
 
 class AdminLoginResponse(BaseModel):
     """Admin login success response containing session token."""
@@ -17,12 +16,10 @@ class AdminLoginResponse(BaseModel):
     token: str = Field(..., description="Secure bearer session token", examples=["sess_9f8b4a2e..."])
     access_token: str = Field(..., description="OAuth2 compatible access token alias", examples=["sess_9f8b4a2e..."])
     token_type: str = Field(default="bearer", description="Token type", examples=["bearer"])
-    username: str = Field(..., description="Authenticated username", examples=["admin"])
 
 class AdminSessionStatus(BaseModel):
     """Current session verification details."""
     authenticated: bool = Field(..., description="True if valid admin session is active")
-    username: Optional[str] = Field(None, description="Current authenticated username")
 
 # ==============================================================================
 # PEER / DEVICE SCHEMAS
