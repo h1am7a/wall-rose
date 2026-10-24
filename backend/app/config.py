@@ -27,6 +27,7 @@ class Settings(BaseSettings):
         description="Session encryption and token signing key"
     )
     SESSION_MAX_AGE_SECONDS: int = Field(default=86400 * 7, description="Admin session duration in seconds")
+    ENABLE_ADMIN_AUTH: bool = Field(default=True, description="Enforce admin authentication on API")
 
     # Database
     DATABASE_PATH: Path = Field(

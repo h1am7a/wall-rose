@@ -47,6 +47,8 @@ async def test_auth_router():
 async def test_peer_and_subscription_flow():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Authenticate
+        await client.post("/api/auth/login", json={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD})
         # 1. List initial peers
         res_list = await client.get("/api/peers")
         assert res_list.status_code == 200
@@ -134,6 +136,8 @@ async def test_peer_and_subscription_flow():
 async def test_cores_and_config_editor():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Authenticate
+        await client.post("/api/auth/login", json={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD})
         # 1. List cores
         res_cores = await client.get("/api/cores")
         assert res_cores.status_code == 200

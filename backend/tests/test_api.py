@@ -11,6 +11,11 @@ async def test_full_gateway_lifecycle():
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        # Authenticate as Administrator
+        from app.config import settings
+        login_res = await ac.post("/api/auth/login", json={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD})
+        assert login_res.status_code == 200
+
         # 2. Check Telemetry
         resp = await ac.get("/api/telemetry")
         assert resp.status_code == 200
@@ -19,7 +24,7 @@ async def test_full_gateway_lifecycle():
         assert "ram_percent" in telemetry
         assert "peers_total" in telemetry
 
-        # 3. Check Cores Listing
+        # 3. Check Cores Listing (Authenticated)
         resp = await ac.get("/api/cores")
         assert resp.status_code == 200
         cores = resp.json()

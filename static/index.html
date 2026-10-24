@@ -1990,6 +1990,29 @@ rules:
   <!-- =======================================================================
        ENROLL NEW DEVICE MODAL
        ========================================================================= -->
+    <!-- Security Admin Gate Modal -->
+  <div class="comic-modal-overlay" id="authModal">
+    <div class="comic-modal" style="max-width: 440px; text-align: center;">
+      <div style="display: inline-block; background: var(--accent-red); color: #fff; font-size: 11px; font-weight: 900; letter-spacing: 1px; padding: 3px 8px; border-radius: 4px; border: 2px solid var(--ink-border); margin-bottom: 12px;">SECURITY GATE</div>
+      <h3 style="font-family: var(--font-display); font-size: 24px; margin-bottom: 8px;">ウォール・ローゼ</h3>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+        Administrator authorization required to manage nodes and routing.
+      </p>
+
+      <div style="text-align: left; margin-bottom: 16px;">
+        <label style="font-size: 11px; font-weight: 800; text-transform: uppercase; display: block; margin-bottom: 6px;">Master Password</label>
+        <input type="password" id="adminPasswordInput" placeholder="Enter administrator password..." style="width: 100%; box-sizing: border-box; padding: 10px 12px; font-family: var(--font-ui); font-size: 0.95rem; font-weight: 700; border: 2.5px solid var(--ink-border); border-radius: 6px; background: var(--bg-canvas); color: var(--text-main);" onkeydown="if(event.key==='Enter') submitAdminLogin()">
+      </div>
+
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button class="comic-btn comic-btn-yellow" style="width: 100%; justify-content: center;" onclick="submitAdminLogin()">
+          <svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 5a3 3 0 0 1 6 0v3H9V7z"/></svg>
+          UNLOCK PANEL
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="comic-modal-overlay" id="addPeerModal">
     <div class="comic-modal" style="max-width: 520px;">
       <div class="modal-head">
@@ -2765,16 +2788,20 @@ rules:
       const hostEl = document.getElementById('brandHost');
       if (hostEl) hostEl.textContent = window.location.host || '127.0.0.1';
 
-      loadTelemetry();
-      loadPeers();
-      loadCores();
+      checkAuthAndInit();
 
-      // Poll telemetry every 5 seconds, peers every 12 seconds
-      setInterval(loadTelemetry, 5000);
-      setInterval(loadPeers, 12000);
+      // Poll telemetry and peers periodically only when authenticated
+      setInterval(() => {
+        const authModal = document.getElementById('authModal');
+        if (authModal && !authModal.classList.contains('open')) {
+          loadTelemetry();
+          loadPeers();
+        }
+      }, 10000);
     });
 
     window.onclick = function(e) {
+      if (e.target.id === 'authModal') return;
       if (e.target.classList.contains('comic-modal-overlay')) {
         e.target.classList.remove('open');
       }

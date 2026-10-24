@@ -33,7 +33,7 @@ from app.core_manager import (
 )
 from app.sub_generator import generate_awg_client_conf
 
-router = APIRouter(prefix="/api/peers", tags=["Device Management"])
+router = APIRouter(prefix="/api/peers", tags=["Device Management"], dependencies=[Depends(require_admin)])
 
 def serialize_peer_response(peer: Peer, base_url: str = "") -> PeerResponse:
     """Helper to convert ORM Peer into Pydantic PeerResponse with calculated fields."""

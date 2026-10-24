@@ -14,7 +14,7 @@ from app.schemas import (
 from app.core_manager import check_daemon_status, restart_daemon_service
 from app.security import require_admin
 
-router = APIRouter(prefix="/api/cores", tags=["Protocol Engines"])
+router = APIRouter(prefix="/api/cores", tags=["Protocol Engines"], dependencies=[Depends(require_admin)])
 
 def get_service_unit_name(core_id: str) -> str:
     """Map core_id to systemd service unit name."""
