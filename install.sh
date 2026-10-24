@@ -73,7 +73,9 @@ apt-get install -y --no-install-recommends \
   curl wget git tar gzip openssl \
   python3 python3-pip python3-venv python3-setuptools \
   iptables iptables-persistent netfilter-persistent \
-  unbound qrencode ca-certificates gnupg
+  unbound qrencode ca-certificates gnupg \
+  software-properties-common build-essential dkms \
+  linux-headers-$(uname -r) || true
 
 # 3. Kernel Sysctl Network & BBR Tuning
 log_info "Applying Linux kernel sysctl network optimizations (/etc/sysctl.d/99-wallrose.conf)..."
@@ -101,9 +103,13 @@ EOF
 sysctl --system > /dev/null 2>&1 || true
 log_ok "Kernel parameters and BBR applied."
 
-# 4. AmneziaWG Installation
+# 4. AmneziaWG Installation & Kernel Module Compatibility
 log_info "Installing AmneziaWG kernel module and CLI tools..."
 if [[ "$OS_ID" == "ubuntu" ]]; then
+  # Ensure software-properties-common is available
+  if ! command -v add-apt-repository &>/dev/null; then
+    apt-get install -y software-properties-common || true
+  fi
   # Official Launchpad PPA native to Ubuntu
   add-apt-repository -y ppa:amnezia/ppa || true
   apt-get update -y
@@ -115,6 +121,72 @@ else
     log_warn "Installing wireguard-tools fallback for Debian. Compiling awg-tools recommended."
   fi
 fi
+
+# Patch DKMS module for Linux Kernel >= 6.13 / 7.0 (Ubuntu 26.04+ setup_udp_tunnel_sock API change)
+log_info "Verifying AmneziaWG kernel module compatibility..."
+python3 - << 'PYEOF' || true
+import glob, os
+
+patch_applied = False
+compat_files = glob.glob('/usr/src/amneziawg-*/src/compat/compat.h') + glob.glob('/usr/src/amneziawg-*/compat/compat.h')
+
+old_block = """#if LINUX_VERSION_CODE < KERNEL_VERSION(7, 1, 5)
+#include <net/udp_tunnel.h>
+#define setup_udp_tunnel_sock(net, sk, sock_cfg) setup_udp_tunnel_sock(net, sk->sk_socket, sock_cfg)
+#define udp_tunnel_sock_release(sk) udp_tunnel_sock_release(sk->sk_socket)
+#endif"""
+
+new_block = """/* 7.1.5 switched these to struct sock *, but distros backport the change
+ * piecemeal (Ubuntu 7.0.0-38 only took setup_udp_tunnel_sock) without
+ * bumping LINUX_VERSION_CODE, so check each declared signature instead.
+ */
+#include <net/udp_tunnel.h>
+
+static inline void __compat_setup_udp_tunnel_sock(struct net *net, struct sock *sk,
+						  struct udp_tunnel_sock_cfg *cfg)
+{
+	setup_udp_tunnel_sock(net, __builtin_choose_expr(
+		__builtin_types_compatible_p(typeof(&setup_udp_tunnel_sock),
+			void (*)(struct net *, struct sock *, struct udp_tunnel_sock_cfg *)),
+		sk, sk->sk_socket), cfg);
+}
+#define setup_udp_tunnel_sock(net, sk, cfg) __compat_setup_udp_tunnel_sock((net), (sk), (cfg))
+
+static inline void __compat_udp_tunnel_sock_release(struct sock *sk)
+{
+	udp_tunnel_sock_release(__builtin_choose_expr(
+		__builtin_types_compatible_p(typeof(&udp_tunnel_sock_release), void (*)(struct sock *)),
+		sk, sk->sk_socket));
+}
+#define udp_tunnel_sock_release(sk) __compat_udp_tunnel_sock_release(sk)"""
+
+for cfile in compat_files:
+    try:
+        with open(cfile, 'r', encoding='utf-8') as f:
+            content = f.read()
+        if old_block in content:
+            content = content.replace(old_block, new_block)
+            with open(cfile, 'w', encoding='utf-8') as f:
+                f.write(content)
+            print(f"Patched Linux 7.0+ kernel API compatibility in: {cfile}")
+            patch_applied = True
+    except Exception as e:
+        print(f"Notice during compat patch check on {cfile}: {e}")
+
+if patch_applied:
+    print("Kernel compatibility patch applied successfully.")
+PYEOF
+
+# Rebuild DKMS module if source was patched
+for dkms_dir in /usr/src/amneziawg-*; do
+  if [ -d "$dkms_dir" ]; then
+    mod_ver=$(basename "$dkms_dir" | sed 's/amneziawg-//')
+    dkms build -m amneziawg -v "$mod_ver" --force 2>/dev/null || true
+    dkms install -m amneziawg -v "$mod_ver" --force 2>/dev/null || true
+  fi
+done
+
+modprobe amneziawg 2>/dev/null || true
 
 mkdir -p /etc/amnezia/amneziawg
 chmod 700 /etc/amnezia/amneziawg
@@ -172,9 +244,9 @@ systemctl enable --now ${AWG_BIN}-quick@awg0 || true
 systemctl enable --now ${AWG_BIN}-quick@awg1 || true
 log_ok "AmneziaWG server daemons configured and launched."
 
-# 5. Hysteria 2 Daemon Setup
-log_info "Installing Hysteria 2 daemon binary..."
-HY2_VERSION="v2.6.0"
+# 5. Hysteria 2 Daemon Setup (v2.13.0 with Gecko Obfuscation)
+log_info "Installing Hysteria 2 daemon binary (v2.13.0)..."
+HY2_VERSION="v2.13.0"
 HY2_URL="https://github.com/apernet/hysteria/releases/download/app%2F${HY2_VERSION}/hysteria-linux-${HY2_ARCH}"
 
 mkdir -p /etc/hysteria /var/log/hysteria
@@ -186,21 +258,21 @@ if [[ ! -f /usr/local/bin/hysteria ]]; then
   chmod +x /usr/local/bin/hysteria 2>/dev/null || true
 fi
 
-# Self-signed ECDSA Certificate generation with IP SAN
-if [[ ! -f /etc/hysteria/server.crt ]]; then
-  log_info "Generating self-signed ECDSA TLS certificate with IP SAN ($PUBLIC_IP)..."
-  openssl req -x509 -nodes -newkey ec:<(openssl ecparam -name prime256v1) \
+# Self-signed RSA-2048 Certificate generation with IP SAN (DNS first, IP second)
+if [[ ! -f /etc/hysteria/server.crt || ! -f /etc/hysteria/server.key ]]; then
+  log_info "Generating self-signed RSA-2048 TLS certificate with IP SAN ($PUBLIC_IP)..."
+  openssl req -x509 -nodes -newkey rsa:2048 \
     -keyout /etc/hysteria/server.key \
     -out /etc/hysteria/server.crt \
     -days 3650 \
     -subj "/CN=gateway.cloudflare.com" \
-    -addext "subjectAltName=IP:$PUBLIC_IP,DNS:gateway.cloudflare.com" > /dev/null 2>&1
+    -addext "subjectAltName=DNS:gateway.cloudflare.com,IP:$PUBLIC_IP" > /dev/null 2>&1
   chmod 600 /etc/hysteria/server.key
   chmod 644 /etc/hysteria/server.crt
 fi
 
-# Hysteria 2 Server Config Template
-SALAMANDER_OBFS_KEY=$(openssl rand -hex 16)
+# Hysteria 2 Server Config Template (Strict Gecko Anti-DPI Obfuscation)
+GECKO_OBFS_KEY=$(openssl rand -hex 16)
 cat > /etc/hysteria/config.yaml << EOF
 listen: :4433
 
@@ -223,9 +295,11 @@ bandwidth:
 ignoreClientBandwidth: false
 
 obfs:
-  type: salamander
-  salamander:
-    password: ${SALAMANDER_OBFS_KEY}
+  type: gecko
+  gecko:
+    password: ${GECKO_OBFS_KEY}
+    minPacketSize: 512
+    maxPacketSize: 1200
 
 auth:
   type: http
@@ -237,14 +311,33 @@ trafficStats:
 EOF
 chmod 600 /etc/hysteria/config.yaml
 
-# 6. Unbound Local DNS Resolver (DNS Leak Protection)
+# 6. Unbound Local DNS Resolver (AppArmor Guard & IP Freebind)
 log_info "Configuring Unbound DoT DNS resolver (10.8.0.1 / 10.9.0.1)..."
+
+# Relax AppArmor net_admin restriction for Unbound on modern Ubuntu kernels
+mkdir -p /etc/apparmor.d/local
+if [ ! -f /etc/apparmor.d/local/usr.sbin.unbound ]; then
+  echo "capability net_admin," > /etc/apparmor.d/local/usr.sbin.unbound
+elif ! grep -q "capability net_admin" /etc/apparmor.d/local/usr.sbin.unbound; then
+  echo "capability net_admin," >> /etc/apparmor.d/local/usr.sbin.unbound
+fi
+
+if command -v apparmor_parser &>/dev/null && [ -f /etc/apparmor.d/usr.sbin.unbound ]; then
+  apparmor_parser -r /etc/apparmor.d/usr.sbin.unbound 2>/dev/null || true
+fi
+if command -v aa-complain &>/dev/null && [ -f /etc/apparmor.d/usr.sbin.unbound ]; then
+  aa-complain /etc/apparmor.d/usr.sbin.unbound 2>/dev/null || true
+fi
+
 cat > /etc/unbound/unbound.conf.d/wallrose.conf << 'EOF'
 server:
   interface: 10.8.0.1
   interface: 10.9.0.1
   interface: 127.0.0.1
   port: 53
+  ip-freebind: yes
+  so-rcvbuf: 4m
+  so-sndbuf: 4m
   do-ip4: yes
   do-ip6: no
   do-udp: yes
@@ -262,7 +355,8 @@ forward-zone:
   forward-addr: 9.9.9.9@853#dns.quad9.net
   forward-addr: 1.1.1.1@853#cloudflare-dns.com
 EOF
-systemctl restart unbound || true
+
+systemctl restart unbound || log_warn "Unbound restart pending tunnel initialization."
 
 # 7. Netfilter Firewall, MSS Clamping & Port Hopping
 log_info "Configuring iptables NAT, MSS Clamping, and Port Hopping (20000:50000 -> 4433)..."
@@ -317,7 +411,7 @@ if ss -tuln 2>/dev/null | grep -q ":${PANEL_PORT}\b"; then
 fi
 
 ADMIN_USER="${ADMIN_USERNAME:-admin}"
-if [ -z "$ADMIN_PASSWORD" ]; then
+if [ -z "${ADMIN_PASSWORD:-}" ]; then
     # Generate 16-character cryptographically secure master password
     ADMIN_PASS=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 16)
 else
@@ -332,12 +426,24 @@ SERVER_PUBLIC_IP=${PUBLIC_IP}
 ADMIN_USERNAME=${ADMIN_USER}
 ADMIN_PASSWORD=${ADMIN_PASS}
 SECRET_KEY=${SECRET_TOKEN}
-HY2_OBFS_PASSWORD=${SALAMANDER_OBFS_KEY}
+HY2_OBFS_PASSWORD=${GECKO_OBFS_KEY}
+HY2_OBFS_TYPE=gecko
+HY2_OBFS_MIN_PACKET=512
+HY2_OBFS_MAX_PACKET=1200
 AWG0_SERVER_PUBLIC_KEY=${AWG0_SERVER_PUBKEY}
 AWG1_SERVER_PUBLIC_KEY=${AWG1_SERVER_PUBKEY}
 DATABASE_PATH=${INSTALL_DIR}/backend/data/wallrose.db
 EOF
 chmod 600 "$INSTALL_DIR/backend/.env"
+
+# Save administrative credentials copy with 600 permissions
+mkdir -p /root/.wallrose
+cat > /root/.wallrose/credentials.txt << EOF
+URL: http://${PUBLIC_IP}:${PANEL_PORT}/
+MASTER_PASSWORD: ${ADMIN_PASS}
+HYSTERIA_GECKO_KEY: ${GECKO_OBFS_KEY}
+EOF
+chmod 600 /root/.wallrose/credentials.txt
 
 # 9. Systemd Service Deployment
 log_info "Deploying systemd service unit (wallrose-panel.service on port ${PANEL_PORT})..."
@@ -399,6 +505,7 @@ echo -e "-----------------------------------------------------------------------
 echo -e "  ${CLR_CYAN}AmneziaWG 2.0:${CLR_RESET}        awg0 (UDP 51820, subnet 10.8.0.0/24)"
 echo -e "  ${CLR_CYAN}AmneziaWG 3.1:${CLR_RESET}        awg1 (UDP 51821, subnet 10.9.0.0/24)"
 echo -e "  ${CLR_CYAN}Hysteria 2.0:${CLR_RESET}         UDP 4433 (Port Hopping 20000:50000)"
-echo -e "  ${CLR_CYAN}Salamander Obfs:${CLR_RESET}      ${SALAMANDER_OBFS_KEY}"
+echo -e "  ${CLR_CYAN}Gecko Obfs:${CLR_RESET}           ${GECKO_OBFS_KEY} (min: 512, max: 1200)"
+echo -e "  ${CLR_CYAN}Saved Creds:${CLR_RESET}          /root/.wallrose/credentials.txt (chmod 600)"
 echo -e "${CLR_GREEN}========================================================================${CLR_RESET}"
 echo ""

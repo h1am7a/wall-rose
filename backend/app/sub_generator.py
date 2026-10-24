@@ -137,9 +137,9 @@ def generate_mihomo_yaml(peer: Peer, server_ip: str = None) -> str:
                     "h4": settings.AWG0_H4,
                 }
             },
-            # Fallback Backup: Hysteria 2 (QUIC + Salamander Obfs + Port Hopping)
+            # Fallback Backup: Hysteria 2 (QUIC + Gecko Obfs + Port Hopping)
             {
-                "name": "Hy2-Salamander-Backup",
+                "name": "Hy2-Gecko-Backup",
                 "type": "hysteria2",
                 "server": ip,
                 "port": settings.HY2_PORT,
@@ -148,8 +148,13 @@ def generate_mihomo_yaml(peer: Peer, server_ip: str = None) -> str:
                 "sni": "gateway.cloudflare.com",
                 "skip-cert-verify": True,
                 "obfs": {
-                    "type": "salamander",
-                    "password": settings.HY2_OBFS_PASSWORD
+                    "type": settings.HY2_OBFS_TYPE,
+                    "password": settings.HY2_OBFS_PASSWORD,
+                    "min_packet_size": settings.HY2_OBFS_MIN_PACKET,
+                    "max_packet_size": settings.HY2_OBFS_MAX_PACKET,
+                } if settings.HY2_OBFS_TYPE == "gecko" else {
+                    "type": settings.HY2_OBFS_TYPE,
+                    "password": settings.HY2_OBFS_PASSWORD,
                 }
             }
         ],
@@ -164,7 +169,7 @@ def generate_mihomo_yaml(peer: Peer, server_ip: str = None) -> str:
                 "proxies": [
                     "AWG-3.1-Primary",
                     "AWG-2.0-Secondary",
-                    "Hy2-Salamander-Backup"
+                    "Hy2-Gecko-Backup"
                 ]
             },
             {
@@ -174,7 +179,7 @@ def generate_mihomo_yaml(peer: Peer, server_ip: str = None) -> str:
                     "AUTO-FAILOVER",
                     "AWG-3.1-Primary",
                     "AWG-2.0-Secondary",
-                    "Hy2-Salamander-Backup",
+                    "Hy2-Gecko-Backup",
                     "DIRECT"
                 ]
             }
@@ -286,8 +291,13 @@ def generate_singbox_json(peer: Peer, server_ip: str = None) -> str:
                     "insecure": True
                 },
                 "obfs": {
-                    "type": "salamander",
-                    "password": settings.HY2_OBFS_PASSWORD
+                    "type": settings.HY2_OBFS_TYPE,
+                    "password": settings.HY2_OBFS_PASSWORD,
+                    "min_packet_size": settings.HY2_OBFS_MIN_PACKET,
+                    "max_packet_size": settings.HY2_OBFS_MAX_PACKET,
+                } if settings.HY2_OBFS_TYPE == "gecko" else {
+                    "type": settings.HY2_OBFS_TYPE,
+                    "password": settings.HY2_OBFS_PASSWORD,
                 }
             },
             {"type": "direct", "tag": "direct"},

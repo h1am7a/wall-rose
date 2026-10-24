@@ -21,7 +21,7 @@ The backend is built with FastAPI and SQLite WAL, maintaining an idle memory foo
 
 - **AmneziaWG 3.1:** ChaCha20 encrypted header protection and randomized packet padding to resist heuristic DPI filters.
 - **AmneziaWG 2.0:** Fixed WireGuard UDP socket compatibility for Keenetic, OpenWrt, and legacy clients.
-- **Hysteria 2.0:** QUIC-based transport with Salamander obfuscation and port hopping (`20000:50000 -> 4433`) for high-loss cellular connections.
+- **Hysteria 2.0:** QUIC-based transport with Gecko packet fragmentation obfuscation and port hopping (`20000:50000 -> 4433`) for high-loss cellular connections.
 
 ---
 
@@ -45,7 +45,7 @@ flowchart TD
         subgraph Daemons ["Protocol Daemons"]
             AWG31["AmneziaWG 3.1 (awg1)<br>ChaCha20 Headers | UDP 51821"]
             AWG20["AmneziaWG 2.0 (awg0)<br>Fixed Socket | UDP 51820"]
-            HY2["Hysteria 2.0 (hy2)<br>Salamander QUIC | Port Hop 20000:50000"]
+            HY2["Hysteria 2.0 (hy2)<br>Gecko QUIC | Port Hop 20000:50000"]
         end
 
         subgraph DNS ["DNS Subsystem"]

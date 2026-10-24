@@ -45,20 +45,23 @@ async def admin_login(payload: AdminLoginRequest, request: Request, response: Re
     
     token = create_admin_session()
     
-    # Set HTTP-only session cookie
+    # Set HTTP-only session cookie (Secure if configured or served over HTTPS)
+    is_secure = settings.COOKIE_SECURE or (request.url.scheme == "https") or (request.headers.get("x-forwarded-proto") == "https")
     response.set_cookie(
         key="admin_session",
         value=token,
         max_age=settings.SESSION_MAX_AGE_SECONDS,
         httponly=True,
         samesite="lax",
-        secure=False  # Set to True if deployed behind TLS
+        secure=is_secure
     )
     
     return AdminLoginResponse(
         ok=True,
         token=token,
-        username=payload.username
+        access_token=token,
+        token_type="bearer",
+        username=payload.username or settings.ADMIN_USERNAME
     )
 
 @router.post(

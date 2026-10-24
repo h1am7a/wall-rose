@@ -204,7 +204,7 @@ def test_mihomo_yaml_structure():
     proxy_names = [p["name"] for p in data["proxies"]]
     assert "AWG-3.1-Primary" in proxy_names
     assert "AWG-2.0-Secondary" in proxy_names
-    assert "Hy2-Salamander-Backup" in proxy_names
+    assert "Hy2-Gecko-Backup" in proxy_names
 
     # Verify AWG 3.1 stealth obfuscation keys
     awg31 = next(p for p in data["proxies"] if p["name"] == "AWG-3.1-Primary")
@@ -217,7 +217,7 @@ def test_mihomo_yaml_structure():
     failover_group = next(g for g in data["proxy-groups"] if g["name"] == "AUTO-FAILOVER")
     assert failover_group["type"] == "fallback"
     assert failover_group["lazy"] is True
-    assert failover_group["proxies"] == ["AWG-3.1-Primary", "AWG-2.0-Secondary", "Hy2-Salamander-Backup"]
+    assert failover_group["proxies"] == ["AWG-3.1-Primary", "AWG-2.0-Secondary", "Hy2-Gecko-Backup"]
 
     # Verify rule ordering
     rules = data["rules"]

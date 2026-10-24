@@ -66,7 +66,7 @@ async def test_full_gateway_lifecycle():
         yaml_content = sub_resp.text
         assert "AWG-3.1-Primary" in yaml_content
         assert "AWG-2.0-Secondary" in yaml_content
-        assert "Hy2-Salamander-Backup" in yaml_content
+        assert "Hy2-Gecko-Backup" in yaml_content
         assert "AUTO-FAILOVER" in yaml_content
         assert "RULE-SET,youtube,AUTO-FAILOVER" in yaml_content
         assert "RULE-SET,category-ru,DIRECT" in yaml_content

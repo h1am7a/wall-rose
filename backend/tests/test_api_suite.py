@@ -28,6 +28,8 @@ async def test_auth_router():
         assert data["ok"] is True
         token = data["token"]
         assert token.startswith("cg_sess_")
+        assert data["access_token"] == token
+        assert data["token_type"] == "bearer"
 
         # 2b. Valid login with PASSWORD ONLY (no username required)
         res_pwd_only = await client.post(
@@ -85,6 +87,7 @@ async def test_peer_and_subscription_flow():
         assert res_list2.status_code == 200
         listed_peer = next(p for p in res_list2.json() if p["id"] == peer_id)
         assert listed_peer["hy2_pass"] == hy2_pass
+        assert listed_peer["hy2_user"] == created["hy2_user"]
 
         # 4. Test User-Agent routing on /sub/{token}
         # A) Mihomo / Clash client

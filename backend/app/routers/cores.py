@@ -116,7 +116,7 @@ H3 = 7
 H4 = 8
 """
         else:
-            content = f"""# Wall Rose Hysteria 2.9 Server Configuration
+            content = f"""# Wall Rose Hysteria 2.13 Server Configuration
 listen: :{core.port}
 
 tls:
@@ -124,9 +124,11 @@ tls:
   key: /etc/hysteria/server.key
 
 obfs:
-  type: salamander
-  salamander:
-    password: SALAMANDER_OBFS_KEY
+  type: gecko
+  gecko:
+    password: GECKO_OBFS_KEY
+    minPacketSize: 512
+    maxPacketSize: 1200
 
 auth:
   type: http

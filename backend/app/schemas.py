@@ -15,6 +15,8 @@ class AdminLoginResponse(BaseModel):
     """Admin login success response containing session token."""
     ok: bool = Field(True, description="Authentication outcome")
     token: str = Field(..., description="Secure bearer session token", examples=["sess_9f8b4a2e..."])
+    access_token: str = Field(..., description="OAuth2 compatible access token alias", examples=["sess_9f8b4a2e..."])
+    token_type: str = Field(default="bearer", description="Token type", examples=["bearer"])
     username: str = Field(..., description="Authenticated username", examples=["admin"])
 
 class AdminSessionStatus(BaseModel):
@@ -72,6 +74,7 @@ class PeerResponse(BaseModel):
     transfer_tx_formatted: str = Field(..., description="Human-readable uploaded bandwidth", examples=["3.4 GB"])
     transfer_total_formatted: str = Field(..., description="Total combined bandwidth", examples=["46.2 GB"])
     
+    hy2_user: str = Field(..., description="Hysteria 2 authentication username", examples=["user_u8kF41"])
     hy2_pass: str = Field(..., description="Unique Hysteria 2 authentication key/pass", examples=["u8kF_41e9xQ..."])
     
     last_handshake: int = Field(..., description="Unix timestamp of latest handshake", examples=[1729291200])
@@ -90,9 +93,6 @@ class PeerDetailResponse(PeerResponse):
     # AmneziaWG 3.1
     awg1_pubkey: str = Field(..., description="AmneziaWG 3.1 client public key")
     awg1_psk: str = Field(..., description="AmneziaWG 3.1 pre-shared key")
-    
-    # Hysteria 2
-    hy2_user: str = Field(..., description="Hysteria 2 authentication username")
     
     created_at: datetime = Field(..., description="Enrollment timestamp")
 

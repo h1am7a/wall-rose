@@ -1398,7 +1398,7 @@
               <div class="speech-badge st-online" id="status-badge-hy2">ONLINE</div>
             </div>
             <p class="blueprint-desc">
-              High-performance proxy protocol built on custom QUIC (UDP) architecture. Features Brutal congestion control for high throughput over lossy links and Salamander protocol obfuscation.
+              High-performance proxy protocol built on custom QUIC (UDP) architecture. Features Brutal congestion control for high throughput over lossy links and Gecko anti-DPI packet-fragmentation obfuscation.
             </p>
           </div>
           <div class="blueprint-actions">
@@ -1514,13 +1514,13 @@ proxies:
     amnezia-h3: 3
     amnezia-h4: 4
 
-  # 3. Hysteria 2 Disaster Recovery (Salamander + Port Hopping)
-  - name: "Hy2-Salamander"
+  # 3. Hysteria 2 Disaster Recovery (Gecko + Port Hopping)
+  - name: "Hy2-Gecko"
     type: hysteria2
     server: 203.0.113.1
     ports: 20000-50000
     password: "tok_client_password_secret"
-    obfs: salamander
+    obfs: gecko
     obfs-password: "obfs_secret_pass"
     skip-cert-verify: true
 
@@ -1533,7 +1533,7 @@ proxy-groups:
     proxies:
       - "AWG-3.1"
       - "AWG-2.0"
-      - "Hy2-Salamander"
+      - "Hy2-Gecko"
 
 rule-providers:
   youtube:
@@ -1695,7 +1695,7 @@ rules:
               </div>
               <div style="background: var(--bg-canvas); border: 2px solid var(--ink-border); padding: 8px 6px; text-align: center; border-radius: 4px;">
                 <span style="font-family: var(--font-display); font-size: 0.70rem; font-weight: 700; color: var(--accent-blue); display: block;">Hysteria 2</span>
-                <span style="font-family: var(--font-ui); font-size: 0.58rem; color: var(--text-muted);">QUIC Salamander</span>
+                <span style="font-family: var(--font-ui); font-size: 0.58rem; color: var(--text-muted);">QUIC Gecko</span>
               </div>
             </div>
           </div>

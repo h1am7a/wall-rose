@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     )
     SESSION_MAX_AGE_SECONDS: int = Field(default=86400 * 7, description="Admin session duration in seconds")
     ENABLE_ADMIN_AUTH: bool = Field(default=True, description="Enforce admin authentication on API")
+    COOKIE_SECURE: bool = Field(default=False, description="Enforce Secure flag on admin session cookie")
 
     # Database
     DATABASE_PATH: Path = Field(
@@ -78,7 +79,9 @@ class Settings(BaseSettings):
     HY2_PORT: int = 4433
     HY2_PORT_HOP_START: int = 20000
     HY2_PORT_HOP_END: int = 50000
-    HY2_OBFS_TYPE: str = "salamander"
+    HY2_OBFS_TYPE: str = "gecko"
+    HY2_OBFS_MIN_PACKET: int = 512
+    HY2_OBFS_MAX_PACKET: int = 1200
     HY2_OBFS_PASSWORD: str = Field(default_factory=lambda: secrets.token_hex(16))
     HY2_CONFIG_PATH: str = "/etc/hysteria/config.yaml"
     HY2_TRAFFIC_STATS_URL: str = "http://127.0.0.1:9999/traffic?clear=1"

@@ -57,6 +57,7 @@ def serialize_peer_response(peer: Peer, base_url: str = "") -> PeerResponse:
         transfer_rx_formatted=format_bytes(rx),
         transfer_tx_formatted=format_bytes(tx),
         transfer_total_formatted=format_bytes(total),
+        hy2_user=peer.hy2_user,
         hy2_pass=peer.hy2_pass,
         last_handshake=peer.last_handshake or 0,
         last_handshake_relative=format_handshake_status(peer.last_handshake, peer.status),
@@ -73,7 +74,6 @@ def serialize_peer_detail(peer: Peer, base_url: str = "") -> PeerDetailResponse:
         awg0_psk=peer.awg0_psk,
         awg1_pubkey=peer.awg1_pubkey,
         awg1_psk=peer.awg1_psk,
-        hy2_user=peer.hy2_user,
         created_at=peer.created_at,
     )
 
