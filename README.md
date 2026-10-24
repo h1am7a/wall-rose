@@ -63,18 +63,25 @@ flowchart TD
 
 ## Installation
 
-Deploy on a fresh Ubuntu or Debian server:
+Deploy on a fresh Ubuntu or Debian server with a single command:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/h1am7a/wall-rose/main/install.sh | sudo bash
 ```
 
-The installer configures:
+Custom port and master password overrides are supported via environment variables:
+
+```bash
+PORT=8080 ADMIN_PASSWORD="your_secret_password" curl -fsSL https://raw.githubusercontent.com/h1am7a/wall-rose/main/install.sh | sudo -E bash
+```
+
+The installer automatically configures:
 - BBR congestion control and UDP buffer tuning (`/etc/sysctl.d/99-wallrose.conf`).
-- AmneziaWG kernel modules and tools.
-- Hysteria 2.0 daemon and ECDSA certificates.
+- AmneziaWG kernel modules, interface configs (`awg0`, `awg1`), and routing keys.
+- Hysteria 2.0 daemon and ECDSA self-signed certificates.
 - Local Unbound DNS-over-TLS resolver on `10.8.0.1:53` and `10.9.0.1:53`.
-- `iptables` NAT masquerading, MSS clamping, and port hopping.
+- `iptables` NAT masquerading, MSS clamping, and port hopping (`20000:50000 -> 4433`).
+- 16-character CSPRNG master password stored in `/opt/wall-rose/backend/.env` (`chmod 600`).
 - Systemd service units (`wallrose-panel.service`, `hysteria-server.service`).
 
 ---
@@ -82,7 +89,7 @@ The installer configures:
 ## Client Setup
 
 ### Mihomo / Clash Verge Rev / Flclash
-1. Click **Mihomo Sub** on the device card.
+1. Open dashboard, unlock console, and click **Mihomo Sub** on the device card.
 2. In the client, add subscription via URL: `http://<SERVER_IP>:8000/sub/<TOKEN>`
 3. Set update interval to 24 hours.
 
@@ -104,6 +111,9 @@ Interactive OpenAPI documentation is available at `/docs` (Swagger) and `/redoc`
 
 | Endpoint | Method | Description |
 | :--- | :--- | :--- |
+| `/api/auth/login` | `POST` | Authenticate master administrator; sets HttpOnly session cookie |
+| `/api/auth/logout` | `POST` | Invalidate active session and clear cookie |
+| `/api/auth/status` | `GET` | Verify current session health |
 | `/api/peers` | `GET`, `POST` | List registered peers; enroll new device with live kernel mutation |
 | `/api/peers/{id}` | `GET`, `PUT`, `DELETE` | Peer details, name updates, credential revocation |
 | `/api/peers/{id}/status` | `PATCH` | Toggle peer active/suspended state in kernel live |
@@ -130,7 +140,7 @@ python3 -m venv venv
 source venv/bin/activate  # Windows: .\venv\Scripts\Activate.ps1
 pip install -r backend/requirements.txt
 
-# Run test suite
+# Run full test suite (23 tests: units, API contracts, resilience, stress)
 pytest backend/tests -v
 
 # Start local server
@@ -142,11 +152,15 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ## Security
 
+- **Zero-Trust Administrative Gate:** All data and configuration APIs require session authorization. Unauthenticated calls return `401 Unauthorized`.
+- **Anti-Bruteforce Lockout:** Exceeding 5 failed login attempts activates an immediate 5-minute IP lockout (`429 Too Many Requests`).
+- **HttpOnly Session Cookies:** Session tokens are stored in `HttpOnly`, `SameSite=Lax` cookies, preventing client-side script theft.
 - **Direct Subprocess Execution:** System commands execute strictly via argument arrays (`shell=False`).
 - **Path Traversal Protection:** Backup archives are validated using `os.path.commonpath()` and Python 3.12 `filter="data"`.
 - **Query Parameterization:** SQLite queries run exclusively through SQLAlchemy 2.0 async ORM.
 - **High-Entropy Tokens:** Subscription tokens are generated via `secrets.token_urlsafe(32)` (256-bit CSPRNG entropy).
 - **Subnet Isolation:** Forwarding rules isolate client subnets (`10.8.0.0/24`, `10.9.0.0/24`) to prevent peer traversal.
+- **Loopback Internal Protection:** Internal Hysteria authentication callbacks reject external traffic.
 
 ---
 

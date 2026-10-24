@@ -1,10 +1,8 @@
-import asyncio
 import os
 import shutil
 import subprocess
 import tempfile
-import time
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, Tuple
 import logging
 
 from app.config import settings
@@ -123,7 +121,7 @@ def fetch_awg_interface_metrics(interface: str) -> Dict[str, Dict[str, Any]]:
     Returns dict keyed by public_key:
     {
       pubkey: {
-        "endpoint": "1.2.3.4:5678",
+        "endpoint": "203.0.113.1:5678",
         "latest_handshake": 1729291200,
         "transfer_rx": 1234567,
         "transfer_tx": 7654321

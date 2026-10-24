@@ -1,12 +1,13 @@
+import asyncio
 import secrets
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
+from sqlalchemy import select
 
 from app.config import settings
 from app.database import get_db
-from app.models import Peer, Setting
+from app.models import Peer
 from app.schemas import (
     PeerCreateRequest,
     PeerUpdateRequest,
@@ -20,7 +21,6 @@ from app.security import (
     generate_preshared_key,
     generate_subscription_token,
     format_bytes,
-    format_relative_time,
     format_handshake_status,
     require_admin,
 )
@@ -34,6 +34,9 @@ from app.core_manager import (
 from app.sub_generator import generate_awg_client_conf
 
 router = APIRouter(prefix="/api/peers", tags=["Device Management"], dependencies=[Depends(require_admin)])
+
+# Global lock to prevent IPAM race conditions under high concurrency
+PEER_PROVISIONING_LOCK = asyncio.Lock()
 
 def serialize_peer_response(peer: Peer, base_url: str = "") -> PeerResponse:
     """Helper to convert ORM Peer into Pydantic PeerResponse with calculated fields."""
@@ -114,56 +117,57 @@ async def create_peer(
     payload: PeerCreateRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    # Allocate unique IPs
-    try:
-        ip_awg0, ip_awg1 = await allocate_peer_ips(db)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    async with PEER_PROVISIONING_LOCK:
+        # Allocate unique IPs
+        try:
+            ip_awg0, ip_awg1 = await allocate_peer_ips(db)
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    # Generate x25519 keypairs and PSKs in pure Python
-    awg0_priv, awg0_pub = generate_x25519_keypair()
-    awg0_psk = generate_preshared_key()
+        # Generate x25519 keypairs and PSKs in pure Python
+        awg0_priv, awg0_pub = generate_x25519_keypair()
+        awg0_psk = generate_preshared_key()
 
-    awg1_priv, awg1_pub = generate_x25519_keypair()
-    awg1_psk = generate_preshared_key()
+        awg1_priv, awg1_pub = generate_x25519_keypair()
+        awg1_psk = generate_preshared_key()
 
-    # Generate Hysteria 2 credentials & subscription token
-    hy2_user = f"user_{secrets.token_hex(4)}"
-    hy2_pass = secrets.token_urlsafe(16)
-    sub_token = generate_subscription_token()
+        # Generate Hysteria 2 credentials & subscription token
+        hy2_user = f"user_{secrets.token_hex(4)}"
+        hy2_pass = secrets.token_urlsafe(16)
+        sub_token = generate_subscription_token()
 
-    peer = Peer(
-        name=payload.name.strip(),
-        device_desc=payload.device_desc.strip(),
-        token=sub_token,
-        awg0_ip=ip_awg0,
-        awg0_privkey=awg0_priv,
-        awg0_pubkey=awg0_pub,
-        awg0_psk=awg0_psk,
-        awg1_ip=ip_awg1,
-        awg1_privkey=awg1_priv,
-        awg1_pubkey=awg1_pub,
-        awg1_psk=awg1_psk,
-        hy2_user=hy2_user,
-        hy2_pass=hy2_pass,
-        status="ACTIVE",
-        transfer_rx=0,
-        transfer_tx=0,
-        last_handshake=0
-    )
+        peer = Peer(
+            name=payload.name.strip(),
+            device_desc=payload.device_desc.strip(),
+            token=sub_token,
+            awg0_ip=ip_awg0,
+            awg0_privkey=awg0_priv,
+            awg0_pubkey=awg0_pub,
+            awg0_psk=awg0_psk,
+            awg1_ip=ip_awg1,
+            awg1_privkey=awg1_priv,
+            awg1_pubkey=awg1_pub,
+            awg1_psk=awg1_psk,
+            hy2_user=hy2_user,
+            hy2_pass=hy2_pass,
+            status="ACTIVE",
+            transfer_rx=0,
+            transfer_tx=0,
+            last_handshake=0
+        )
 
-    db.add(peer)
-    await db.commit()
-    await db.refresh(peer)
+        db.add(peer)
+        await db.commit()
+        await db.refresh(peer)
 
-    # Zero-downtime registration in running kernel interfaces
-    live_add_awg_peer(settings.AWG0_INTERFACE, awg0_pub, ip_awg0, awg0_psk)
-    live_add_awg_peer(settings.AWG1_INTERFACE, awg1_pub, ip_awg1, awg1_psk)
+        # Zero-downtime registration in running kernel interfaces
+        live_add_awg_peer(settings.AWG1_INTERFACE, awg1_pub, ip_awg1, awg1_psk)
+        live_add_awg_peer(settings.AWG0_INTERFACE, awg0_pub, ip_awg0, awg0_psk)
 
-    # Register in high-speed in-memory auth cache for Hysteria 2
-    auth_cache.set_user(hy2_user, hy2_pass, peer.status)
+        # Register in high-speed in-memory auth cache for Hysteria 2
+        auth_cache.set_user(hy2_user, hy2_pass, peer.status)
 
-    return serialize_peer_detail(peer)
+        return serialize_peer_detail(peer)
 
 @router.get(
     "/{peer_id}",

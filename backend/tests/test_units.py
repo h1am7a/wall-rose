@@ -190,7 +190,7 @@ def dummy_peer():
 
 def test_mihomo_yaml_structure():
     peer = dummy_peer()
-    yaml_str = generate_mihomo_yaml(peer, server_ip="1.2.3.4")
+    yaml_str = generate_mihomo_yaml(peer, server_ip="203.0.113.1")
     
     # Check valid YAML syntax
     data = yaml.safe_load(yaml_str)
@@ -208,7 +208,7 @@ def test_mihomo_yaml_structure():
 
     # Verify AWG 3.1 stealth obfuscation keys
     awg31 = next(p for p in data["proxies"] if p["name"] == "AWG-3.1-Primary")
-    assert awg31["server"] == "1.2.3.4"
+    assert awg31["server"] == "203.0.113.1"
     assert "amnezia" in awg31
     assert awg31["amnezia"]["jc"] == 7
     assert awg31["amnezia"]["s1"] == 28
@@ -230,7 +230,7 @@ def test_mihomo_yaml_structure():
 
 def test_singbox_json_structure():
     peer = dummy_peer()
-    json_str = generate_singbox_json(peer, server_ip="1.2.3.4")
+    json_str = generate_singbox_json(peer, server_ip="203.0.113.1")
     cfg = json.loads(json_str)
     assert "outbounds" in cfg
     outbound_tags = [o["tag"] for o in cfg["outbounds"]]
@@ -239,12 +239,12 @@ def test_singbox_json_structure():
 
 def test_awg_conf_structure():
     peer = dummy_peer()
-    conf2 = generate_awg_client_conf(peer, version="2.0", server_ip="1.2.3.4")
+    conf2 = generate_awg_client_conf(peer, version="2.0", server_ip="203.0.113.1")
     assert "[Interface]" in conf2
     assert "[Peer]" in conf2
     assert "Address = 10.8.0.10/32" in conf2
-    assert "1.2.3.4:51820" in conf2
+    assert "203.0.113.1:51820" in conf2
 
-    conf3 = generate_awg_client_conf(peer, version="3.1", server_ip="1.2.3.4")
+    conf3 = generate_awg_client_conf(peer, version="3.1", server_ip="203.0.113.1")
     assert "Address = 10.9.0.10/32" in conf3
-    assert "1.2.3.4:51821" in conf3
+    assert "203.0.113.1:51821" in conf3

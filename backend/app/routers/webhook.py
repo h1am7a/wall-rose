@@ -3,7 +3,7 @@ from typing import Dict, Any
 from fastapi import APIRouter, Depends, Request, HTTPException, status
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import update
 
 from app.config import settings
 from app.database import get_db

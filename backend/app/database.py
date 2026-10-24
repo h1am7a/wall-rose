@@ -1,8 +1,6 @@
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
-from sqlalchemy import event
-import aiosqlite
 
 from app.config import settings
 
@@ -46,7 +44,7 @@ async def configure_sqlite_pragmas():
 
 async def init_db():
     """Create all tables and seed default cores and settings if empty."""
-    from app.models import Peer, ProtocolCore, Setting
+    from app.models import ProtocolCore, Setting
     await configure_sqlite_pragmas()
     
     async with engine.begin() as conn:

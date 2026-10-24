@@ -267,3 +267,7 @@ async def test_anti_bruteforce_lockout():
         res_blocked = await client.post("/api/auth/login", json={"username": "admin", "password": "any_password"})
         assert res_blocked.status_code == 429, f"6th attempt should return 429, got {res_blocked.status_code}"
         assert "Too many failed login attempts" in res_blocked.json()["detail"]
+
+        # Reset anti-bruteforce state for subsequent tests
+        from app.routers.auth import FAILED_ATTEMPTS
+        FAILED_ATTEMPTS.clear()
