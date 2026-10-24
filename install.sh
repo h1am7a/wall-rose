@@ -310,10 +310,16 @@ python3 -m venv "$INSTALL_DIR/venv"
 "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
 "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/backend/requirements.txt"
 
-# Generate Admin Credentials (allow user override via environment variable)
+# Configure Web Panel Port & Admin Credentials
+PANEL_PORT="${PORT:-8000}"
+if ss -tuln 2>/dev/null | grep -q ":${PANEL_PORT}\b"; then
+    log_warn "Port ${PANEL_PORT} is currently in use by another process! You can override it with: PORT=8080 bash install.sh"
+fi
+
 ADMIN_USER="${ADMIN_USERNAME:-admin}"
 if [ -z "$ADMIN_PASSWORD" ]; then
-    ADMIN_PASS=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
+    # Generate 16-character cryptographically secure master password
+    ADMIN_PASS=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 16)
 else
     ADMIN_PASS="$ADMIN_PASSWORD"
 fi
@@ -321,7 +327,7 @@ SECRET_TOKEN=$(openssl rand -hex 32)
 
 cat > "$INSTALL_DIR/backend/.env" << EOF
 HOST=0.0.0.0
-PORT=8000
+PORT=${PANEL_PORT}
 SERVER_PUBLIC_IP=${PUBLIC_IP}
 ADMIN_USERNAME=${ADMIN_USER}
 ADMIN_PASSWORD=${ADMIN_PASS}
@@ -334,7 +340,7 @@ EOF
 chmod 600 "$INSTALL_DIR/backend/.env"
 
 # 9. Systemd Service Deployment
-log_info "Deploying systemd service unit (wallrose-panel.service)..."
+log_info "Deploying systemd service unit (wallrose-panel.service on port ${PANEL_PORT})..."
 cat > /etc/systemd/system/wallrose-panel.service << EOF
 [Unit]
 Description=Wall Rose (ウォール・ローゼ) Multi-Protocol Personal VPN Gateway Panel
@@ -344,7 +350,7 @@ After=network.target network-online.target
 Type=simple
 User=root
 WorkingDirectory=${INSTALL_DIR}/backend
-ExecStart=${INSTALL_DIR}/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+ExecStart=${INSTALL_DIR}/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PANEL_PORT}
 Restart=always
 RestartSec=3
 LimitNOFILE=65535
@@ -385,11 +391,10 @@ echo ""
 echo -e "${CLR_GREEN}========================================================================${CLR_RESET}"
 echo -e "${CLR_BOLD}Wall Rose (ウォール・ローゼ) VPN Gateway successfully deployed!${CLR_RESET}"
 echo -e "${CLR_GREEN}========================================================================${CLR_RESET}"
-echo -e "  ${CLR_YELLOW}Web Panel UI:${CLR_RESET}        http://${PUBLIC_IP}:8000/"
-echo -e "  ${CLR_YELLOW}OpenAPI Documentation:${CLR_RESET} http://${PUBLIC_IP}:8000/docs"
-echo -e "  ${CLR_YELLOW}ReDoc Tech Spec:${CLR_RESET}       http://${PUBLIC_IP}:8000/redoc"
-echo -e "  ${CLR_YELLOW}Admin Username:${CLR_RESET}       ${ADMIN_USER}"
-echo -e "  ${CLR_YELLOW}Admin Password:${CLR_RESET}       ${ADMIN_PASS}"
+echo -e "  ${CLR_YELLOW}Web Panel UI:${CLR_RESET}        http://${PUBLIC_IP}:${PANEL_PORT}/"
+echo -e "  ${CLR_YELLOW}Master Password:${CLR_RESET}     ${ADMIN_PASS}"
+echo -e "  ${CLR_CYAN}Auth Note:${CLR_RESET}           No username required (single master password entry)"
+echo -e "  ${CLR_YELLOW}OpenAPI Spec:${CLR_RESET}        http://${PUBLIC_IP}:${PANEL_PORT}/docs"
 echo -e "------------------------------------------------------------------------"
 echo -e "  ${CLR_CYAN}AmneziaWG 2.0:${CLR_RESET}        awg0 (UDP 51820, subnet 10.8.0.0/24)"
 echo -e "  ${CLR_CYAN}AmneziaWG 3.1:${CLR_RESET}        awg1 (UDP 51821, subnet 10.9.0.0/24)"

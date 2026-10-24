@@ -29,6 +29,14 @@ async def test_auth_router():
         token = data["token"]
         assert token.startswith("cg_sess_")
 
+        # 2b. Valid login with PASSWORD ONLY (no username required)
+        res_pwd_only = await client.post(
+            "/api/auth/login",
+            json={"password": settings.ADMIN_PASSWORD}
+        )
+        assert res_pwd_only.status_code == 200
+        assert res_pwd_only.json()["ok"] is True
+
         # 3. Check status with cookie
         res_status = await client.get("/api/auth/status")
         assert res_status.status_code == 200

@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class AdminLoginRequest(BaseModel):
     """Admin authentication credentials payload."""
-    username: str = Field(..., description="Administrator username", examples=["admin"])
-    password: str = Field(..., description="Administrator password", examples=["wallrose2026"])
+    username: Optional[str] = Field(default="admin", description="Administrator username (optional, defaults to admin)", examples=["admin"])
+    password: str = Field(..., description="Master administrator password", examples=["wallrose2026"])
 
 class AdminLoginResponse(BaseModel):
     """Admin login success response containing session token."""

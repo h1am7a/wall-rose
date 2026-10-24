@@ -30,7 +30,8 @@ async def admin_login(payload: AdminLoginRequest, request: Request, response: Re
                 detail="Too many failed login attempts. Security lockout active for 5 minutes."
             )
 
-    if payload.username != settings.ADMIN_USERNAME or payload.password != settings.ADMIN_PASSWORD:
+    provided_user = payload.username if payload.username is not None else settings.ADMIN_USERNAME
+    if provided_user != settings.ADMIN_USERNAME or payload.password != settings.ADMIN_PASSWORD:
         if client_ip not in FAILED_ATTEMPTS:
             FAILED_ATTEMPTS[client_ip] = []
         FAILED_ATTEMPTS[client_ip].append(now)
