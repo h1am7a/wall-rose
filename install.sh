@@ -119,6 +119,59 @@ fi
 mkdir -p /etc/amnezia/amneziawg
 chmod 700 /etc/amnezia/amneziawg
 
+# Generate Server Keys and Core Configurations
+AWG_BIN="awg"
+if ! command -v awg &>/dev/null; then
+  AWG_BIN="wg"
+fi
+
+AWG0_SERVER_PRIVKEY=$($AWG_BIN genkey)
+AWG0_SERVER_PUBKEY=$(echo "$AWG0_SERVER_PRIVKEY" | $AWG_BIN pubkey)
+
+AWG1_SERVER_PRIVKEY=$($AWG_BIN genkey)
+AWG1_SERVER_PUBKEY=$(echo "$AWG1_SERVER_PRIVKEY" | $AWG_BIN pubkey)
+
+# 4.1 AmneziaWG 2.0 (awg0 - Fixed UDP Socket)
+cat > /etc/amnezia/amneziawg/awg0.conf << EOF
+[Interface]
+Address = 10.8.0.1/24
+ListenPort = 51820
+PrivateKey = ${AWG0_SERVER_PRIVKEY}
+Jc = 4
+Jmin = 40
+Jmax = 70
+S1 = 15
+S2 = 39
+H1 = 1
+H2 = 2
+H3 = 3
+H4 = 4
+EOF
+chmod 600 /etc/amnezia/amneziawg/awg0.conf
+
+# 4.2 AmneziaWG 3.1 (awg1 - ChaCha20 Stealth Header Protection)
+cat > /etc/amnezia/amneziawg/awg1.conf << EOF
+[Interface]
+Address = 10.9.0.1/24
+ListenPort = 51821
+PrivateKey = ${AWG1_SERVER_PRIVKEY}
+Jc = 7
+Jmin = 64
+Jmax = 128
+S1 = 28
+S2 = 56
+H1 = 5
+H2 = 6
+H3 = 7
+H4 = 8
+EOF
+chmod 600 /etc/amnezia/amneziawg/awg1.conf
+
+# Enable and start AmneziaWG systemd services
+systemctl enable --now ${AWG_BIN}-quick@awg0 || true
+systemctl enable --now ${AWG_BIN}-quick@awg1 || true
+log_ok "AmneziaWG server daemons configured and launched."
+
 # 5. Hysteria 2 Daemon Setup
 log_info "Installing Hysteria 2 daemon binary..."
 HY2_VERSION="v2.6.0"
@@ -270,6 +323,9 @@ ADMIN_USERNAME=${ADMIN_USER}
 ADMIN_PASSWORD=${ADMIN_PASS}
 SECRET_KEY=${SECRET_TOKEN}
 HY2_OBFS_PASSWORD=${SALAMANDER_OBFS_KEY}
+AWG0_SERVER_PUBLIC_KEY=${AWG0_SERVER_PUBKEY}
+AWG1_SERVER_PUBLIC_KEY=${AWG1_SERVER_PUBKEY}
+DATABASE_PATH=${INSTALL_DIR}/backend/data/wallrose.db
 EOF
 chmod 600 "$INSTALL_DIR/backend/.env"
 

@@ -80,7 +80,7 @@ async def init_db():
                 ),
                 ProtocolCore(
                     core_id="hy2",
-                    display_name="Hysteria 2.9 (hy2)",
+                    display_name="Hysteria 2.0 (hy2)",
                     protocol="hysteria2",
                     port=settings.HY2_PORT,
                     subnet="Dynamic QUIC",

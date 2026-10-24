@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     # Security
     ADMIN_USERNAME: str = Field(default="admin", description="Panel administrator username")
-    ADMIN_PASSWORD: str = Field(default="coregate2026", description="Panel administrator password")
+    ADMIN_PASSWORD: str = Field(default="wallrose2026", description="Panel administrator password")
     SECRET_KEY: str = Field(
         default_factory=lambda: secrets.token_urlsafe(32),
         description="Session encryption and token signing key"
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_PATH: Path = Field(
-        default=BASE_DIR / "data" / "coregate.db",
+        default=BASE_DIR / "data" / "wallrose.db",
         description="SQLite database path"
     )
 
@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     AWG0_SUBNET: str = "10.8.0.0/24"
     AWG0_SERVER_IP: str = "10.8.0.1"
     AWG0_CONFIG_PATH: str = "/etc/amnezia/amneziawg/awg0.conf"
+    AWG0_SERVER_PUBLIC_KEY: str = Field(default="", description="Base64 public key for awg0 server")
     # AWG 2.0 default obfuscation parameters
     AWG0_JC: int = 4
     AWG0_JMIN: int = 40
@@ -59,6 +60,7 @@ class Settings(BaseSettings):
     AWG1_SUBNET: str = "10.9.0.0/24"
     AWG1_SERVER_IP: str = "10.9.0.1"
     AWG1_CONFIG_PATH: str = "/etc/amnezia/amneziawg/awg1.conf"
+    AWG1_SERVER_PUBLIC_KEY: str = Field(default="", description="Base64 public key for awg1 server")
     # AWG 3.1 obfuscation parameters
     AWG1_JC: int = 7
     AWG1_JMIN: int = 64

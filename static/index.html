@@ -2259,7 +2259,20 @@ rules:
       });
     }
 
-    function openYamlPreview() {
+    async function openYamlPreview() {
+      if (peersData && peersData.length > 0 && peersData[0].subscription_token) {
+        try {
+          const res = await fetch('/sub/' + peersData[0].subscription_token);
+          if (res.ok) {
+            const liveYaml = await res.text();
+            document.getElementById('modalYamlBox').textContent = liveYaml;
+            document.getElementById('yamlModal').classList.add('open');
+            return;
+          }
+        } catch (e) {
+          console.warn('Fallback to snippet preview:', e);
+        }
+      }
       const snippet = document.getElementById('yamlSnippet');
       if (snippet) {
         document.getElementById('modalYamlBox').textContent = snippet.textContent;

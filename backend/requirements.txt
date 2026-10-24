@@ -1,4 +1,4 @@
-# CoreGate Multi-Protocol VPN Gateway Dependencies
+# Wall Rose (ウォール・ローゼ) Multi-Protocol VPN Gateway Dependencies
 fastapi>=0.110.0
 uvicorn[standard]>=0.28.0
 pydantic>=2.6.0

@@ -188,7 +188,7 @@ async def test_backup_and_recovery():
         # Verify archive structure in memory
         with tarfile.open(fileobj=io.BytesIO(content), mode="r:gz") as tar:
             members = tar.getnames()
-            assert any("coregate.db" in m for m in members), "Backup archive must contain SQLite database"
+            assert any("wallrose.db" in m for m in members), "Backup archive must contain SQLite database"
 
         # 2. Test restore with invalid file (must reject)
         files = {"file": ("corrupt.txt", b"not a tar gz", "text/plain")}

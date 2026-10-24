@@ -20,10 +20,10 @@ router = APIRouter(prefix="/api/backup", tags=["System Backup"])
 )
 async def export_backup(db: AsyncSession = Depends(get_db)):
     timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
-    archive_name = f"coregate_backup_{timestamp}.tar.gz"
+    archive_name = f"wallrose_backup_{timestamp}.tar.gz"
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        backup_db_path = os.path.join(tmp_dir, "coregate_backup.db")
+        backup_db_path = os.path.join(tmp_dir, "wallrose_backup.db")
 
         # Execute safe SQLite VACUUM INTO for clean WAL checkpointing
         try:
@@ -39,7 +39,7 @@ async def export_backup(db: AsyncSession = Depends(get_db)):
         tar_buffer = io.BytesIO()
         with tarfile.open(fileobj=tar_buffer, mode="w:gz") as tar:
             if os.path.exists(backup_db_path):
-                tar.add(backup_db_path, arcname="coregate.db")
+                tar.add(backup_db_path, arcname="wallrose.db")
             
             # Include configuration files if existing
             for cfg in [settings.AWG0_CONFIG_PATH, settings.AWG1_CONFIG_PATH, settings.HY2_CONFIG_PATH]:
@@ -83,10 +83,14 @@ async def restore_backup(
         except Exception as e:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Corrupt backup archive: {e}")
 
-        extracted_db = os.path.join(tmp_dir, "coregate.db")
+        extracted_db = os.path.join(tmp_dir, "wallrose.db")
+        if not os.path.exists(extracted_db):
+            legacy_db = os.path.join(tmp_dir, "coregate.db")
+            if os.path.exists(legacy_db):
+                extracted_db = legacy_db
         if os.path.exists(extracted_db):
             import shutil
             shutil.copy2(extracted_db, settings.DATABASE_PATH)
             return ApiResponse(ok=True, message="Database restored successfully. Please restart the service.")
         else:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No coregate.db found inside archive")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No database file found inside archive")

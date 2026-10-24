@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class AdminLoginRequest(BaseModel):
     """Admin authentication credentials payload."""
     username: str = Field(..., description="Administrator username", examples=["admin"])
-    password: str = Field(..., description="Administrator password", examples=["coregate2026"])
+    password: str = Field(..., description="Administrator password", examples=["wallrose2026"])
 
 class AdminLoginResponse(BaseModel):
     """Admin login success response containing session token."""

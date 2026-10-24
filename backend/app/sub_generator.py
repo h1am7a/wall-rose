@@ -3,6 +3,7 @@ import yaml
 from typing import Dict, Any
 from app.config import settings
 from app.models import Peer
+from app.core_manager import get_server_public_key
 
 def generate_awg_client_conf(peer: Peer, version: str = "3.1", server_ip: str = None) -> str:
     """Generate raw AmneziaWG .conf file."""
@@ -24,7 +25,7 @@ H3 = {settings.AWG0_H3}
 H4 = {settings.AWG0_H4}
 
 [Peer]
-PublicKey = SERVER_AWG0_PUBKEY_PLACEHOLDER
+PublicKey = {get_server_public_key("awg0")}
 PresharedKey = {peer.awg0_psk}
 Endpoint = {ip}:{settings.AWG0_PORT}
 AllowedIPs = 0.0.0.0/0, ::/0
@@ -47,7 +48,7 @@ H3 = {settings.AWG1_H3}
 H4 = {settings.AWG1_H4}
 
 [Peer]
-PublicKey = SERVER_AWG1_PUBKEY_PLACEHOLDER
+PublicKey = {get_server_public_key("awg1")}
 PresharedKey = {peer.awg1_psk}
 Endpoint = {ip}:{settings.AWG1_PORT}
 AllowedIPs = 0.0.0.0/0, ::/0
@@ -92,7 +93,7 @@ def generate_mihomo_yaml(peer: Peer, server_ip: str = None) -> str:
                 "server": ip,
                 "port": settings.AWG1_PORT,
                 "ip": peer.awg1_ip,
-                "public-key": "SERVER_AWG1_PUBKEY_PLACEHOLDER",
+                "public-key": get_server_public_key("awg1"),
                 "private-key": peer.awg1_privkey,
                 "preshared-key": peer.awg1_psk,
                 "udp": True,
@@ -118,7 +119,7 @@ def generate_mihomo_yaml(peer: Peer, server_ip: str = None) -> str:
                 "server": ip,
                 "port": settings.AWG0_PORT,
                 "ip": peer.awg0_ip,
-                "public-key": "SERVER_AWG0_PUBKEY_PLACEHOLDER",
+                "public-key": get_server_public_key("awg0"),
                 "private-key": peer.awg0_privkey,
                 "preshared-key": peer.awg0_psk,
                 "udp": True,
@@ -305,7 +306,7 @@ def generate_mobile_landing_html(peer: Peer, subscription_url: str) -> str:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{peer.name} — CoreGate Client Enrollment</title>
+  <title>{peer.name} — ウォール・ローゼ (Wall Rose)</title>
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{
@@ -405,7 +406,7 @@ def generate_mobile_landing_html(peer: Peer, subscription_url: str) -> str:
 </head>
 <body>
   <div class="card">
-    <div class="badge">CoreGate Active Profile</div>
+    <div class="badge">Wall Rose Active Profile</div>
     <h1>{peer.name}</h1>
     <p class="desc">{peer.device_desc} &bull; Mesh IP: {peer.awg1_ip}</p>
 
@@ -422,7 +423,7 @@ def generate_mobile_landing_html(peer: Peer, subscription_url: str) -> str:
       Import to Sing-box
     </a>
 
-    <button class="btn btn-copy" onclick="navigator.clipboard.writeText('{subscription_url}'); alert('Subscription URL copied!');">
+    <button class="btn btn-copy" onclick="navigator.clipboard.writeText('{subscription_url}'); this.textContent = 'Copied!'; setTimeout(() => this.textContent = 'Copy Subscription Link', 2000);">
       Copy Subscription Link
     </button>
   </div>
