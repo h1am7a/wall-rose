@@ -1,3 +1,4 @@
+import time
 from fastapi import APIRouter, Response, Request, HTTPException, status
 from app.config import settings
 from app.schemas import AdminLoginRequest, AdminLoginResponse, AdminSessionStatus, ApiResponse
@@ -5,18 +6,41 @@ from app.security import create_admin_session, verify_admin_session, revoke_admi
 
 router = APIRouter(prefix="/api/auth", tags=["Admin Authentication"])
 
+# Anti-bruteforce state: client IP -> list of failed attempt timestamps
+FAILED_ATTEMPTS: dict[str, list[float]] = {}
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_WINDOW_SECONDS = 300  # 5 minutes
+
 @router.post(
     "/login",
     response_model=AdminLoginResponse,
     summary="Authenticate Administrator",
     description="Validates administrative credentials and establishes an authenticated session."
 )
-async def admin_login(payload: AdminLoginRequest, response: Response):
+async def admin_login(payload: AdminLoginRequest, request: Request, response: Response):
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+
+    # Clean up old attempts and check lockout threshold
+    if client_ip in FAILED_ATTEMPTS:
+        FAILED_ATTEMPTS[client_ip] = [t for t in FAILED_ATTEMPTS[client_ip] if now - t < LOCKOUT_WINDOW_SECONDS]
+        if len(FAILED_ATTEMPTS[client_ip]) >= MAX_FAILED_ATTEMPTS:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many failed login attempts. Security lockout active for 5 minutes."
+            )
+
     if payload.username != settings.ADMIN_USERNAME or payload.password != settings.ADMIN_PASSWORD:
+        if client_ip not in FAILED_ATTEMPTS:
+            FAILED_ATTEMPTS[client_ip] = []
+        FAILED_ATTEMPTS[client_ip].append(now)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password"
         )
+
+    # Authentication successful: clear failed attempts
+    FAILED_ATTEMPTS.pop(client_ip, None)
     
     token = create_admin_session()
     

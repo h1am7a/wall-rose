@@ -310,9 +310,13 @@ python3 -m venv "$INSTALL_DIR/venv"
 "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
 "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/backend/requirements.txt"
 
-# Generate Admin Credentials
-ADMIN_USER="admin"
-ADMIN_PASS=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
+# Generate Admin Credentials (allow user override via environment variable)
+ADMIN_USER="${ADMIN_USERNAME:-admin}"
+if [ -z "$ADMIN_PASSWORD" ]; then
+    ADMIN_PASS=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
+else
+    ADMIN_PASS="$ADMIN_PASSWORD"
+fi
 SECRET_TOKEN=$(openssl rand -hex 32)
 
 cat > "$INSTALL_DIR/backend/.env" << EOF
@@ -393,4 +397,3 @@ echo -e "  ${CLR_CYAN}Hysteria 2.0:${CLR_RESET}         UDP 4433 (Port Hopping 2
 echo -e "  ${CLR_CYAN}Salamander Obfs:${CLR_RESET}      ${SALAMANDER_OBFS_KEY}"
 echo -e "${CLR_GREEN}========================================================================${CLR_RESET}"
 echo ""
-EOF

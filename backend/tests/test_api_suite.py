@@ -243,3 +243,19 @@ async def test_security_gate_strict_rejection():
         # 6. Core mutation
         res = await client.post("/api/cores/awg0/restart")
         assert res.status_code == 401, f"Expected 401 for POST /api/cores/awg0/restart, got {res.status_code}"
+
+
+@pytest.mark.asyncio
+async def test_anti_bruteforce_lockout():
+    """Verify that exceeding 5 failed login attempts triggers HTTP 429 Too Many Requests."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # 5 failed attempts
+        for i in range(5):
+            res = await client.post("/api/auth/login", json={"username": "admin", "password": f"wrong_{i}"})
+            assert res.status_code == 401, f"Attempt {i+1} should return 401"
+
+        # 6th attempt should be blocked by rate limiter with 429
+        res_blocked = await client.post("/api/auth/login", json={"username": "admin", "password": "any_password"})
+        assert res_blocked.status_code == 429, f"6th attempt should return 429, got {res_blocked.status_code}"
+        assert "Too many failed login attempts" in res_blocked.json()["detail"]
