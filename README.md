@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/images/banner.svg" alt="ウォール・ローゼ (Wall Rose)" width="100%">
+  <img src="assets/images/banner.svg" alt="ウォール・ローゼ" width="100%">
 </p>
 
-# ウォール・ローゼ (Wall Rose)
+<h1 align="center">ウォール・ローゼ</h1>
 
 <p align="center">
   <a href="#license"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="License MIT"></a>
@@ -29,40 +29,33 @@ The backend is built with FastAPI and SQLite WAL, maintaining an idle memory foo
 
 ```mermaid
 flowchart TD
-    Client["Client Device
-Clash / Mihomo / Sing-box / AWG"] -->|GET /sub/{token}| SubEndpoint["/sub/{token}
-Client Auto-Detection"]
+    Client["Client Device<br>Clash / Mihomo / Sing-box / AWG"] -->|"GET /sub/:token"| SubEndpoint["Subscription Endpoint<br>Client Auto-Detection"]
 
     subgraph Server ["Wall Rose VPS Stack"]
         subgraph UI ["Static Web UI (~75 KB)"]
-            Web["Manga Comic Dashboard
-Light / Dark Noir"]
+            Web["Manga Comic Dashboard<br>Light / Dark Themes"]
         end
 
-        subgraph Backend ["FastAPI Engine (<45 MB RAM)"]
+        subgraph Backend ["FastAPI Engine (Under 45 MB RAM)"]
             API["REST API and SQLite WAL"]
-            Cache["In-Memory Auth Cache (<0.2 ms)"]
+            Cache["In-Memory Auth Cache (Under 0.2 ms)"]
             IPAM["IP Allocator (10.8.0.x / 10.9.0.x)"]
         end
 
         subgraph Daemons ["Protocol Daemons"]
-            AWG31["AmneziaWG 3.1 (awg1)
-ChaCha20 Headers | UDP 51821"]
-            AWG20["AmneziaWG 2.0 (awg0)
-Fixed Socket | UDP 51820"]
-            HY2["Hysteria 2.0 (hy2)
-Salamander QUIC | Port Hop 20000:50000"]
+            AWG31["AmneziaWG 3.1 (awg1)<br>ChaCha20 Headers | UDP 51821"]
+            AWG20["AmneziaWG 2.0 (awg0)<br>Fixed Socket | UDP 51820"]
+            HY2["Hysteria 2.0 (hy2)<br>Salamander QUIC | Port Hop 20000:50000"]
         end
 
         subgraph DNS ["DNS Subsystem"]
-            Unbound["Unbound DoT Resolver
-10.8.0.1 / 10.9.0.1"]
+            Unbound["Unbound DoT Resolver<br>10.8.0.1 / 10.9.0.1"]
         end
     end
 
     SubEndpoint --> Backend
-    API -->|awg set| Daemons
-    HY2 -->|POST /api/v1/hysteria/auth| Cache
+    API -->|"awg set"| Daemons
+    HY2 -->|"POST /api/v1/hysteria/auth"| Cache
     Daemons --> Unbound
 ```
 
