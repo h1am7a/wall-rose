@@ -66,7 +66,7 @@ flowchart TD
 Deploy on a fresh Ubuntu or Debian server:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<user>/wall-rose/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/h1am7a/wall-rose/main/install.sh | sudo bash
 ```
 
 The installer configures:
@@ -122,7 +122,7 @@ Interactive OpenAPI documentation is available at `/docs` (Swagger) and `/redoc`
 
 ```bash
 # Clone and enter directory
-git clone https://github.com/<user>/wall-rose.git
+git clone https://github.com/h1am7a/wall-rose.git
 cd wall-rose/vpn-panel
 
 # Virtual environment setup

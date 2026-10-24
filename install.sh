@@ -236,8 +236,21 @@ log_ok "Firewall rules activated and persisted."
 INSTALL_DIR="/opt/wallrose"
 log_info "Installing Wall Rose backend to $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR"
-cp -r backend "$INSTALL_DIR/"
-cp -r static "$INSTALL_DIR/"
+
+if [[ ! -d "backend" || ! -d "static" ]]; then
+  log_info "Fetching Wall Rose repository from GitHub (https://github.com/h1am7a/wall-rose)..."
+  TMP_REPO=$(mktemp -d)
+  git clone --depth 1 https://github.com/h1am7a/wall-rose.git "$TMP_REPO"
+  SOURCE_DIR="$TMP_REPO"
+else
+  SOURCE_DIR="."
+fi
+
+cp -r "$SOURCE_DIR/backend" "$INSTALL_DIR/"
+cp -r "$SOURCE_DIR/static" "$INSTALL_DIR/"
+if [[ -n "${TMP_REPO:-}" && -d "${TMP_REPO:-}" ]]; then
+  rm -rf "$TMP_REPO"
+fi
 
 # Create isolated Python virtual environment (PEP 668 compliant)
 python3 -m venv "$INSTALL_DIR/venv"
@@ -320,7 +333,7 @@ echo -e "  ${CLR_YELLOW}Admin Password:${CLR_RESET}       ${ADMIN_PASS}"
 echo -e "------------------------------------------------------------------------"
 echo -e "  ${CLR_CYAN}AmneziaWG 2.0:${CLR_RESET}        awg0 (UDP 51820, subnet 10.8.0.0/24)"
 echo -e "  ${CLR_CYAN}AmneziaWG 3.1:${CLR_RESET}        awg1 (UDP 51821, subnet 10.9.0.0/24)"
-echo -e "  ${CLR_CYAN}Hysteria 2.9:${CLR_RESET}         UDP 4433 (Port Hopping 20000:50000)"
+echo -e "  ${CLR_CYAN}Hysteria 2.0:${CLR_RESET}         UDP 4433 (Port Hopping 20000:50000)"
 echo -e "  ${CLR_CYAN}Salamander Obfs:${CLR_RESET}      ${SALAMANDER_OBFS_KEY}"
 echo -e "${CLR_GREEN}========================================================================${CLR_RESET}"
 echo ""
