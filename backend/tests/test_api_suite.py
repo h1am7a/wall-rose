@@ -168,6 +168,14 @@ async def test_cores_and_config_editor():
 async def test_telemetry_accuracy():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # 1. Unauthenticated request must return 401
+        res_unauth = await client.get("/api/telemetry")
+        assert res_unauth.status_code == 401
+
+        # 2. Authenticate
+        await client.post("/api/auth/login", json={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD})
+
+        # 3. Authenticated request succeeds
         res = await client.get("/api/telemetry")
         assert res.status_code == 200
         t = res.json()
@@ -182,7 +190,14 @@ async def test_telemetry_accuracy():
 async def test_backup_and_recovery():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # 1. Export backup archive
+        # 1. Unauthenticated request must return 401
+        res_unauth = await client.get("/api/backup/export")
+        assert res_unauth.status_code == 401
+
+        # 2. Authenticate
+        await client.post("/api/auth/login", json={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD})
+
+        # 3. Export backup archive
         res_backup = await client.get("/api/backup/export")
         assert res_backup.status_code == 200
         assert res_backup.headers["content-type"] == "application/gzip"
@@ -194,7 +209,37 @@ async def test_backup_and_recovery():
             members = tar.getnames()
             assert any("wallrose.db" in m for m in members), "Backup archive must contain SQLite database"
 
-        # 2. Test restore with invalid file (must reject)
+        # 4. Test restore with invalid file (must reject)
         files = {"file": ("corrupt.txt", b"not a tar gz", "text/plain")}
         res_bad_restore = await client.post("/api/backup/restore", files=files)
         assert res_bad_restore.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_security_gate_strict_rejection():
+    """Verify that ALL critical management APIs strictly reject unauthenticated calls with 401."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # 1. Peers endpoint
+        res = await client.get("/api/peers")
+        assert res.status_code == 401, f"Expected 401 for /api/peers, got {res.status_code}"
+
+        # 2. Cores endpoint
+        res = await client.get("/api/cores")
+        assert res.status_code == 401, f"Expected 401 for /api/cores, got {res.status_code}"
+
+        # 3. Telemetry endpoint
+        res = await client.get("/api/telemetry")
+        assert res.status_code == 401, f"Expected 401 for /api/telemetry, got {res.status_code}"
+
+        # 4. Backup endpoint
+        res = await client.get("/api/backup/export")
+        assert res.status_code == 401, f"Expected 401 for /api/backup/export, got {res.status_code}"
+
+        # 5. Peer enrollment mutation
+        res = await client.post("/api/peers", json={"name": "HACKER_ATTEMPT"})
+        assert res.status_code == 401, f"Expected 401 for POST /api/peers, got {res.status_code}"
+
+        # 6. Core mutation
+        res = await client.post("/api/cores/awg0/restart")
+        assert res.status_code == 401, f"Expected 401 for POST /api/cores/awg0/restart, got {res.status_code}"

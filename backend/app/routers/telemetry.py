@@ -8,9 +8,9 @@ from sqlalchemy import select
 from app.database import get_db
 from app.models import Peer
 from app.schemas import TelemetryResponse
-from app.security import format_bytes
+from app.security import format_bytes, require_admin
 
-router = APIRouter(prefix="/api/telemetry", tags=["Host Telemetry"])
+router = APIRouter(prefix="/api/telemetry", tags=["Host Telemetry"], dependencies=[Depends(require_admin)])
 
 # State tracking for delta throughput
 LAST_NET_CHECK = time.time()

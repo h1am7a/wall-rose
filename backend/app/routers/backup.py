@@ -11,7 +11,7 @@ from app.database import get_db, engine
 from app.schemas import ApiResponse
 from app.security import require_admin
 
-router = APIRouter(prefix="/api/backup", tags=["System Backup"])
+router = APIRouter(prefix="/api/backup", tags=["System Backup"], dependencies=[Depends(require_admin)])
 
 @router.get(
     "/export",
