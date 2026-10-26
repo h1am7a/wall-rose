@@ -77,12 +77,12 @@ PORT=8080 ADMIN_PASSWORD="your_secret_password" curl -fsSL https://raw.githubuse
 
 The installer automatically configures:
 - BBR congestion control and UDP buffer tuning (`/etc/sysctl.d/99-wallrose.conf`).
-- AmneziaWG kernel modules, interface configs (`awg0`, `awg1`), and routing keys.
-- Hysteria 2.0 daemon and ECDSA self-signed certificates.
+- AmneziaWG userspace engine (`amneziawg-go`), interface configs (`awg0`, `awg1`), and randomized obfuscation keys.
+- Hysteria 2.0 daemon on single UDP port 443 and RSA-2048 self-signed certificates.
 - Local Unbound DNS-over-TLS resolver on `10.8.0.1:53` and `10.9.0.1:53`.
-- `iptables` NAT masquerading, MSS clamping, and port hopping (`20000:50000 -> 4433`).
-- 16-character CSPRNG master password stored in `/opt/wall-rose/backend/.env` (`chmod 600`).
-- Systemd service units (`wallrose-panel.service`, `hysteria-server.service`).
+- `iptables` NAT masquerading and MSS clamping.
+- 16-character CSPRNG master password stored in `/opt/wallrose/backend/.env` (`chmod 600`).
+- Systemd service units (`awg0-go.service`, `awg1-go.service`, `wallrose-panel.service`, `hysteria-server.service`).
 
 ---
 

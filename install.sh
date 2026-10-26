@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Wall Rose (ウォール・ローゼ) Multi-Protocol VPN Gateway — Production Deployment Installer
+# Wall Rose (ウォール・ローゼ) Multi-Protocol Personal VPN Gateway — Installer
 # Supported OS: Ubuntu 24.04 LTS, Ubuntu 26.04 LTS, Debian 12 (Bookworm)
 # Architecture: x86_64 (amd64) / aarch64 (arm64)
+# Stack: Userspace AmneziaWG (amneziawg-go) + Hysteria 2 (single UDP 443)
 # ==============================================================================
 
 set -euo pipefail
@@ -65,17 +66,25 @@ fi
 PUBLIC_IP=$(curl -s4 https://api.ipify.org || curl -s4 https://ifconfig.me || echo "127.0.0.1")
 log_ok "WAN Interface: $WAN_IF | Public IP: $PUBLIC_IP"
 
-# 2. System Packages & Prerequisites
+# 2. System Packages & Prerequisites (Pure Userspace — NO kernel modules / dkms)
 log_info "Updating system package repositories..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y --no-install-recommends \
   curl wget git tar gzip openssl \
-  python3 python3-pip python3-venv python3-setuptools \
+  python3 python3-pip python3-venv python3-setuptools python3-cryptography \
   iptables iptables-persistent netfilter-persistent \
   unbound qrencode ca-certificates gnupg \
-  software-properties-common build-essential dkms \
-  linux-headers-$(uname -r) || true
+  software-properties-common build-essential || true
+
+if [[ "$OS_ID" == "ubuntu" ]]; then
+  # Official Launchpad PPA native to Ubuntu for awg CLI tools
+  add-apt-repository -y ppa:amnezia/ppa || true
+  apt-get update -y
+  apt-get install -y amneziawg-tools wireguard-tools || true
+else
+  apt-get install -y wireguard-tools || true
+fi
 
 # 3. Kernel Sysctl Network & BBR Tuning
 log_info "Applying Linux kernel sysctl network optimizations (/etc/sysctl.d/99-wallrose.conf)..."
@@ -103,178 +112,340 @@ EOF
 sysctl --system > /dev/null 2>&1 || true
 log_ok "Kernel parameters and BBR applied."
 
-# 4. AmneziaWG Installation & Kernel Module Compatibility
-log_info "Installing AmneziaWG kernel module and CLI tools..."
-if [[ "$OS_ID" == "ubuntu" ]]; then
-  # Ensure software-properties-common is available
-  if ! command -v add-apt-repository &>/dev/null; then
-    apt-get install -y software-properties-common || true
-  fi
-  # Official Launchpad PPA native to Ubuntu
-  add-apt-repository -y ppa:amnezia/ppa || true
-  apt-get update -y
-  apt-get install -y amneziawg amneziawg-tools amneziawg-dkms || true
-else
-  # Debian 12 Bookworm fallback
-  apt-get install -y wireguard-tools dkms linux-headers-$(uname -r) || true
-  if ! command -v awg &>/dev/null; then
-    log_warn "Installing wireguard-tools fallback for Debian. Compiling awg-tools recommended."
-  fi
+# 4. Userspace AmneziaWG (amneziawg-go) Setup
+log_info "Configuring AmneziaWG userspace engine (amneziawg-go)..."
+
+# Detect pre-installed official userspace binary
+if [[ -f /usr/local/bin/amneziawg-go-official && ! -f /usr/local/bin/amneziawg-go ]]; then
+  ln -sf /usr/local/bin/amneziawg-go-official /usr/local/bin/amneziawg-go
 fi
 
-# Patch DKMS module for Linux Kernel >= 6.13 / 7.0 (Ubuntu 26.04+ setup_udp_tunnel_sock API change)
-log_info "Verifying AmneziaWG kernel module compatibility..."
-python3 - << 'PYEOF' || true
-import glob, os
-
-patch_applied = False
-compat_files = glob.glob('/usr/src/amneziawg-*/src/compat/compat.h') + glob.glob('/usr/src/amneziawg-*/compat/compat.h')
-
-old_block = """#if LINUX_VERSION_CODE < KERNEL_VERSION(7, 1, 5)
-#include <net/udp_tunnel.h>
-#define setup_udp_tunnel_sock(net, sk, sock_cfg) setup_udp_tunnel_sock(net, sk->sk_socket, sock_cfg)
-#define udp_tunnel_sock_release(sk) udp_tunnel_sock_release(sk->sk_socket)
-#endif"""
-
-new_block = """/* 7.1.5 switched these to struct sock *, but distros backport the change
- * piecemeal (Ubuntu 7.0.0-38 only took setup_udp_tunnel_sock) without
- * bumping LINUX_VERSION_CODE, so check each declared signature instead.
- */
-#include <net/udp_tunnel.h>
-
-static inline void __compat_setup_udp_tunnel_sock(struct net *net, struct sock *sk,
-						  struct udp_tunnel_sock_cfg *cfg)
-{
-	setup_udp_tunnel_sock(net, __builtin_choose_expr(
-		__builtin_types_compatible_p(typeof(&setup_udp_tunnel_sock),
-			void (*)(struct net *, struct sock *, struct udp_tunnel_sock_cfg *)),
-		sk, sk->sk_socket), cfg);
-}
-#define setup_udp_tunnel_sock(net, sk, cfg) __compat_setup_udp_tunnel_sock((net), (sk), (cfg))
-
-static inline void __compat_udp_tunnel_sock_release(struct sock *sk)
-{
-	udp_tunnel_sock_release(__builtin_choose_expr(
-		__builtin_types_compatible_p(typeof(&udp_tunnel_sock_release), void (*)(struct sock *)),
-		sk, sk->sk_socket));
-}
-#define udp_tunnel_sock_release(sk) __compat_udp_tunnel_sock_release(sk)"""
-
-for cfile in compat_files:
-    try:
-        with open(cfile, 'r', encoding='utf-8') as f:
-            content = f.read()
-        if old_block in content:
-            content = content.replace(old_block, new_block)
-            with open(cfile, 'w', encoding='utf-8') as f:
-                f.write(content)
-            print(f"Patched Linux 7.0+ kernel API compatibility in: {cfile}")
-            patch_applied = True
-    except Exception as e:
-        print(f"Notice during compat patch check on {cfile}: {e}")
-
-if patch_applied:
-    print("Kernel compatibility patch applied successfully.")
-PYEOF
-
-# Rebuild DKMS module if source was patched
-for dkms_dir in /usr/src/amneziawg-*; do
-  if [ -d "$dkms_dir" ]; then
-    mod_ver=$(basename "$dkms_dir" | sed 's/amneziawg-//')
-    dkms build -m amneziawg -v "$mod_ver" --force 2>/dev/null || true
-    dkms install -m amneziawg -v "$mod_ver" --force 2>/dev/null || true
+# If binary is missing, compile amneziawg-go from official source
+if ! command -v amneziawg-go &>/dev/null && [[ ! -f /usr/local/bin/amneziawg-go && ! -f /usr/local/bin/amneziawg-go-official ]]; then
+  log_info "Compiling amneziawg-go userspace binary from official repository..."
+  apt-get install -y golang-go make git || true
+  TMP_GO_DIR=$(mktemp -d)
+  if git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-go.git "$TMP_GO_DIR" 2>/dev/null; then
+    (cd "$TMP_GO_DIR" && make && cp amneziawg-go /usr/local/bin/amneziawg-go && chmod +x /usr/local/bin/amneziawg-go) || true
   fi
+  rm -rf "$TMP_GO_DIR"
+fi
+
+if [[ -f /usr/local/bin/amneziawg-go-official && ! -f /usr/local/bin/amneziawg-go ]]; then
+  ln -sf /usr/local/bin/amneziawg-go-official /usr/local/bin/amneziawg-go
+fi
+
+# Deploy robust userspace daemon runner script
+cat > /usr/local/bin/awg-go-service << 'EOF'
+#!/usr/bin/env bash
+set -e
+IFACE="$1"
+CONF="$2"
+ADDR="$3"
+
+mkdir -p /var/run/wireguard /var/run/amneziawg
+ip link delete dev "$IFACE" 2>/dev/null || true
+
+AWG_GO=$(command -v amneziawg-go || echo "/usr/local/bin/amneziawg-go")
+if [ ! -x "$AWG_GO" ] && [ -x /usr/local/bin/amneziawg-go-official ]; then
+  AWG_GO="/usr/local/bin/amneziawg-go-official"
+fi
+
+# Start userspace amneziawg-go in foreground inside managed process
+"$AWG_GO" -f "$IFACE" &
+DAEMON_PID=$!
+
+cleanup() {
+  kill "$DAEMON_PID" 2>/dev/null || true
+  ip link delete dev "$IFACE" 2>/dev/null || true
+  rm -f "/var/run/wireguard/${IFACE}.sock" "/var/run/amneziawg/${IFACE}.sock" "/var/run/${IFACE}.sock" 2>/dev/null || true
+}
+trap cleanup SIGINT SIGTERM EXIT
+
+# Wait for UAPI domain socket to appear
+for i in {1..40}; do
+  if [ -S "/var/run/wireguard/${IFACE}.sock" ] || [ -S "/var/run/amneziawg/${IFACE}.sock" ] || [ -S "/var/run/${IFACE}.sock" ]; then
+    break
+  fi
+  sleep 0.1
 done
 
-modprobe amneziawg 2>/dev/null || true
-
-mkdir -p /etc/amnezia/amneziawg
-chmod 700 /etc/amnezia/amneziawg
-
-# Generate Server Keys and Core Configurations
-AWG_BIN="awg"
-if ! command -v awg &>/dev/null; then
-  AWG_BIN="wg"
+# Ensure UAPI sockets exist in all candidate locations for zero-hang queries
+if [ -S "/var/run/wireguard/${IFACE}.sock" ]; then
+  ln -sf "/var/run/wireguard/${IFACE}.sock" "/var/run/amneziawg/${IFACE}.sock" 2>/dev/null || true
+  ln -sf "/var/run/wireguard/${IFACE}.sock" "/var/run/${IFACE}.sock" 2>/dev/null || true
+elif [ -S "/var/run/amneziawg/${IFACE}.sock" ]; then
+  ln -sf "/var/run/amneziawg/${IFACE}.sock" "/var/run/wireguard/${IFACE}.sock" 2>/dev/null || true
+  ln -sf "/var/run/amneziawg/${IFACE}.sock" "/var/run/${IFACE}.sock" 2>/dev/null || true
 fi
 
-AWG0_SERVER_PRIVKEY=$($AWG_BIN genkey)
-AWG0_SERVER_PUBKEY=$(echo "$AWG0_SERVER_PRIVKEY" | $AWG_BIN pubkey)
+# Configure interface via awg / wg CLI
+if command -v awg &>/dev/null; then
+  awg setconf "$IFACE" "$CONF" || true
+elif command -v wg &>/dev/null; then
+  wg setconf "$IFACE" "$CONF" || true
+fi
 
-AWG1_SERVER_PRIVKEY=$($AWG_BIN genkey)
-AWG1_SERVER_PUBKEY=$(echo "$AWG1_SERVER_PRIVKEY" | $AWG_BIN pubkey)
+ip address replace "$ADDR" dev "$IFACE" 2>/dev/null || ip address add "$ADDR" dev "$IFACE" 2>/dev/null || true
+ip link set mtu 1420 up dev "$IFACE" 2>/dev/null || true
 
-# 4.1 AmneziaWG 2.0 (awg0 - Fixed UDP Socket)
-cat > /etc/amnezia/amneziawg/awg0.conf << EOF
-[Interface]
+wait "$DAEMON_PID"
+EOF
+chmod +x /usr/local/bin/awg-go-service
+
+# Deploy systemd units for awg0-go and awg1-go
+cat > /etc/systemd/system/awg0-go.service << EOF
+[Unit]
+Description=AmneziaWG Userspace Daemon (awg0)
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/awg-go-service awg0 /etc/amnezia/amneziawg/awg0-userspace.conf 10.8.0.1/24
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat > /etc/systemd/system/awg1-go.service << EOF
+[Unit]
+Description=AmneziaWG Userspace Daemon (awg1)
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/awg-go-service awg1 /etc/amnezia/amneziawg/awg1-userspace.conf 10.9.0.1/24
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+log_ok "AmneziaWG userspace units configured."
+
+# 5. Cryptographically Random Server Configuration Generation
+log_info "Generating cryptographically random server parameters and configurations..."
+mkdir -p /etc/amnezia/amneziawg /etc/hysteria
+chmod 700 /etc/amnezia/amneziawg /etc/hysteria
+
+PANEL_PORT="${PORT:-8000}"
+export PANEL_PORT
+export PUBLIC_IP
+
+python3 - << 'PYEOF'
+import os, sys, secrets, base64, re
+
+def gen_x25519_keypair():
+    try:
+        from cryptography.hazmat.primitives.asymmetric import x25519
+        from cryptography.hazmat.primitives import serialization
+        priv = x25519.X25519PrivateKey.generate()
+        priv_b64 = base64.b64encode(priv.private_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PrivateFormat.Raw,
+            encryption_algorithm=serialization.NoEncryption()
+        )).decode("ascii")
+        pub_b64 = base64.b64encode(priv.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw
+        )).decode("ascii")
+        return priv_b64, pub_b64
+    except Exception:
+        import subprocess
+        for tool in ["awg", "wg"]:
+            try:
+                res = subprocess.run([tool, "genkey"], capture_output=True, text=True, check=True)
+                priv_b64 = res.stdout.strip()
+                res_pub = subprocess.run([tool, "pubkey"], input=priv_b64, capture_output=True, text=True, check=True)
+                pub_b64 = res_pub.stdout.strip()
+                return priv_b64, pub_b64
+            except Exception:
+                continue
+        der = subprocess.run(["openssl", "genpkey", "-algorithm", "X25519", "-outform", "DER"], capture_output=True, check=True).stdout
+        priv_b64 = base64.b64encode(der[-32:]).decode("ascii")
+        pub_der = subprocess.run(["openssl", "pkey", "-pubout", "-outform", "DER"], input=der, capture_output=True, check=True).stdout
+        pub_b64 = base64.b64encode(pub_der[-32:]).decode("ascii")
+        return priv_b64, pub_b64
+
+def derive_pubkey_from_priv(priv_b64):
+    try:
+        from cryptography.hazmat.primitives.asymmetric import x25519
+        from cryptography.hazmat.primitives import serialization
+        priv_bytes = base64.b64decode(priv_b64)
+        priv = x25519.X25519PrivateKey.from_private_bytes(priv_bytes)
+        return base64.b64encode(priv.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw
+        )).decode("ascii")
+    except Exception:
+        import subprocess
+        for tool in ["awg", "wg"]:
+            try:
+                res = subprocess.run([tool, "pubkey"], input=priv_b64, capture_output=True, text=True, check=True)
+                return res.stdout.strip()
+            except Exception:
+                pass
+        return ""
+
+def parse_ini_kv(path):
+    kv = {}
+    if os.path.isfile(path):
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                s = line.strip()
+                if s.startswith("[Peer]"):
+                    break
+                if "=" in s:
+                    k, v = s.split("=", 1)
+                    kv[k.strip().lower()] = v.strip().strip("\"'")
+    return kv
+
+# --- AWG0 (v2) Configuration ---
+awg0_conf = "/etc/amnezia/amneziawg/awg0-userspace.conf"
+awg0_kv = parse_ini_kv(awg0_conf)
+
+if "privatekey" in awg0_kv and len(awg0_kv["privatekey"]) >= 32:
+    awg0_priv = awg0_kv["privatekey"]
+    awg0_pub = derive_pubkey_from_priv(awg0_priv)
+    awg0_port = awg0_kv.get("listenport", "51820")
+    awg0_jc = awg0_kv.get("jc", "4")
+    awg0_jmin = awg0_kv.get("jmin", "10")
+    awg0_jmax = awg0_kv.get("jmax", "50")
+    awg0_s1 = awg0_kv.get("s1", "135")
+    awg0_s2 = awg0_kv.get("s2", "60")
+    awg0_s3 = awg0_kv.get("s3", "30")
+    awg0_s4 = awg0_kv.get("s4", "20")
+    awg0_h1 = awg0_kv.get("h1", "1083421938")
+    awg0_h2 = awg0_kv.get("h2", "462568195")
+    awg0_h3 = awg0_kv.get("h3", "1293323502")
+    awg0_h4 = awg0_kv.get("h4", "14735819")
+else:
+    awg0_priv, awg0_pub = gen_x25519_keypair()
+    awg0_port = os.environ.get("AWG0_PORT", "51820")
+    awg0_jc = str(secrets.randbelow(7) + 2)          # 2..8
+    awg0_jmin = str(secrets.randbelow(21) + 10)       # 10..30
+    awg0_jmax = str(secrets.randbelow(51) + 40)       # 40..90
+    awg0_s1 = str(secrets.randbelow(181) + 20)        # 20..200
+    awg0_s2 = str(secrets.randbelow(181) + 20)
+    awg0_s3 = str(secrets.randbelow(181) + 20)
+    awg0_s4 = str(secrets.randbelow(181) + 20)
+    awg0_h1 = str(secrets.randbelow(1000000000) + 1000000000) # 10 digits
+    awg0_h2 = str(secrets.randbelow(1000000000) + 1000000000)
+    awg0_h3 = str(secrets.randbelow(1000000000) + 1000000000)
+    awg0_h4 = str(secrets.randbelow(1000000000) + 1000000000)
+
+    with open(awg0_conf, "w", encoding="utf-8") as f:
+        f.write(f"""[Interface]
 Address = 10.8.0.1/24
-ListenPort = 51820
-PrivateKey = ${AWG0_SERVER_PRIVKEY}
-Jc = 4
-Jmin = 40
-Jmax = 70
-S1 = 15
-S2 = 39
-H1 = 1
-H2 = 2
-H3 = 3
-H4 = 4
-EOF
-chmod 600 /etc/amnezia/amneziawg/awg0.conf
+ListenPort = {awg0_port}
+PrivateKey = {awg0_priv}
+Jc = {awg0_jc}
+Jmin = {awg0_jmin}
+Jmax = {awg0_jmax}
+S1 = {awg0_s1}
+S2 = {awg0_s2}
+S3 = {awg0_s3}
+S4 = {awg0_s4}
+H1 = {awg0_h1}
+H2 = {awg0_h2}
+H3 = {awg0_h3}
+H4 = {awg0_h4}
+""")
+    os.chmod(awg0_conf, 0o600)
 
-# 4.2 AmneziaWG 3.1 (awg1 - ChaCha20 Stealth Header Protection)
-cat > /etc/amnezia/amneziawg/awg1.conf << EOF
-[Interface]
+# --- AWG1 (v3) Configuration ---
+awg1_conf = "/etc/amnezia/amneziawg/awg1-userspace.conf"
+awg1_kv = parse_ini_kv(awg1_conf)
+
+if "privatekey" in awg1_kv and len(awg1_kv["privatekey"]) >= 32:
+    awg1_priv = awg1_kv["privatekey"]
+    awg1_pub = derive_pubkey_from_priv(awg1_priv)
+    awg1_port = awg1_kv.get("listenport", "51821")
+    awg1_jc = awg1_kv.get("jc", "2")
+    awg1_jmin = awg1_kv.get("jmin", "10")
+    awg1_jmax = awg1_kv.get("jmax", "50")
+    awg1_s1 = awg1_kv.get("s1", "99")
+    awg1_s2 = awg1_kv.get("s2", "24")
+    awg1_s3 = awg1_kv.get("s3", "66")
+    awg1_s4 = awg1_kv.get("s4", "33")
+    awg1_h1 = awg1_kv.get("h1", "1181749209")
+    awg1_h2 = awg1_kv.get("h2", "1261551410")
+    awg1_h3 = awg1_kv.get("h3", "945272617")
+    awg1_h4 = awg1_kv.get("h4", "1069973896")
+    awg1_hpk = awg1_kv.get("headerprotectionkey", base64.b64encode(secrets.token_bytes(32)).decode("ascii"))
+    awg1_cpa = awg1_kv.get("contentpaddingaddition", "32-128")
+else:
+    awg1_priv, awg1_pub = gen_x25519_keypair()
+    awg1_port = os.environ.get("AWG1_PORT", "51821")
+    awg1_jc = str(secrets.randbelow(7) + 2)          # 2..8
+    awg1_jmin = str(secrets.randbelow(21) + 10)       # 10..30
+    awg1_jmax = str(secrets.randbelow(51) + 40)       # 40..90
+    awg1_s1 = str(secrets.randbelow(181) + 20)        # 20..200
+    awg1_s2 = str(secrets.randbelow(181) + 20)
+    awg1_s3 = str(secrets.randbelow(181) + 20)
+    awg1_s4 = str(secrets.randbelow(181) + 20)
+    awg1_h1 = str(secrets.randbelow(1000000000) + 1000000000)
+    awg1_h2 = str(secrets.randbelow(1000000000) + 1000000000)
+    awg1_h3 = str(secrets.randbelow(1000000000) + 1000000000)
+    awg1_h4 = str(secrets.randbelow(1000000000) + 1000000000)
+    awg1_hpk = base64.b64encode(secrets.token_bytes(32)).decode("ascii")
+    awg1_cpa = "32-128"
+
+    with open(awg1_conf, "w", encoding="utf-8") as f:
+        f.write(f"""[Interface]
 Address = 10.9.0.1/24
-ListenPort = 51821
-PrivateKey = ${AWG1_SERVER_PRIVKEY}
-Jc = 7
-Jmin = 64
-Jmax = 128
-S1 = 28
-S2 = 56
-H1 = 5
-H2 = 6
-H3 = 7
-H4 = 8
-EOF
-chmod 600 /etc/amnezia/amneziawg/awg1.conf
+ListenPort = {awg1_port}
+PrivateKey = {awg1_priv}
+Jc = {awg1_jc}
+Jmin = {awg1_jmin}
+Jmax = {awg1_jmax}
+S1 = {awg1_s1}
+S2 = {awg1_s2}
+S3 = {awg1_s3}
+S4 = {awg1_s4}
+H1 = {awg1_h1}
+H2 = {awg1_h2}
+H3 = {awg1_h3}
+H4 = {awg1_h4}
+HeaderProtectionKey = {awg1_hpk}
+ContentPaddingAddition = 32-128
+RekeyAfterTime = 100-120
+RekeyTimeout = 3-7
+RejectAfterTime = 150-180
+KeepaliveTimeout = 5-15
+MaxHandshakeAttempts = 15-20
+RandomTrailers = on
+DisableCookies = on
+""")
+    os.chmod(awg1_conf, 0o600)
 
-# Enable and start AmneziaWG systemd services
-systemctl enable --now ${AWG_BIN}-quick@awg0 || true
-systemctl enable --now ${AWG_BIN}-quick@awg1 || true
-log_ok "AmneziaWG server daemons configured and launched."
+# --- Hysteria 2 Configuration ---
+hy2_conf = "/etc/hysteria/config.yaml"
+hy2_port = os.environ.get("HY2_PORT", "443")
+gecko_key = ""
 
-# 5. Hysteria 2 Daemon Setup (v2.13.0 with Gecko Obfuscation)
-log_info "Installing Hysteria 2 daemon binary (v2.13.0)..."
-HY2_VERSION="v2.13.0"
-HY2_URL="https://github.com/apernet/hysteria/releases/download/app%2F${HY2_VERSION}/hysteria-linux-${HY2_ARCH}"
+if os.path.isfile(hy2_conf):
+    with open(hy2_conf, "r", encoding="utf-8") as f:
+        content = f.read()
+        m_pass = re.search(r"password:\s*(\S+)", content)
+        if m_pass:
+            gecko_key = m_pass.group(1).strip("\"'")
+        m_port = re.search(r"listen:\s*:?(\d+)", content)
+        if m_port:
+            hy2_port = m_port.group(1)
 
-mkdir -p /etc/hysteria /var/log/hysteria
-if [[ ! -f /usr/local/bin/hysteria ]]; then
-  curl -fsSL "$HY2_URL" -o /usr/local/bin/hysteria || {
-    log_warn "GitHub release direct download failed. Attempting official get script..."
-    bash <(curl -fsSL https://get.hy2.sh/) || true
-  }
-  chmod +x /usr/local/bin/hysteria 2>/dev/null || true
-fi
-
-# Self-signed RSA-2048 Certificate generation with IP SAN (DNS first, IP second)
-if [[ ! -f /etc/hysteria/server.crt || ! -f /etc/hysteria/server.key ]]; then
-  log_info "Generating self-signed RSA-2048 TLS certificate with IP SAN ($PUBLIC_IP)..."
-  openssl req -x509 -nodes -newkey rsa:2048 \
-    -keyout /etc/hysteria/server.key \
-    -out /etc/hysteria/server.crt \
-    -days 3650 \
-    -subj "/CN=gateway.cloudflare.com" \
-    -addext "subjectAltName=DNS:gateway.cloudflare.com,IP:$PUBLIC_IP" > /dev/null 2>&1
-  chmod 600 /etc/hysteria/server.key
-  chmod 644 /etc/hysteria/server.crt
-fi
-
-# Hysteria 2 Server Config Template (Strict Gecko Anti-DPI Obfuscation)
-GECKO_OBFS_KEY=$(openssl rand -hex 16)
-cat > /etc/hysteria/config.yaml << EOF
-listen: :4433
+if not gecko_key:
+    gecko_key = secrets.token_hex(16)
+    panel_port = os.environ.get("PANEL_PORT", "8000")
+    with open(hy2_conf, "w", encoding="utf-8") as f:
+        f.write(f"""listen: :{hy2_port}
 
 tls:
   cert: /etc/hysteria/server.crt
@@ -297,24 +468,94 @@ ignoreClientBandwidth: false
 obfs:
   type: gecko
   gecko:
-    password: ${GECKO_OBFS_KEY}
+    password: {gecko_key}
     minPacketSize: 512
     maxPacketSize: 1200
 
 auth:
   type: http
   http:
-    url: http://127.0.0.1:8000/api/v1/hysteria/auth
+    url: http://127.0.0.1:{panel_port}/api/v1/hysteria/auth
 
 trafficStats:
   listen: 127.0.0.1:9999
-EOF
-chmod 600 /etc/hysteria/config.yaml
+""")
+    os.chmod(hy2_conf, 0o600)
 
-# 6. Unbound Local DNS Resolver (AppArmor Guard & IP Freebind)
+# Export variables to shell environment
+with open("/tmp/wallrose_env_vars.sh", "w", encoding="utf-8") as f:
+    f.write(f"""
+export AWG0_SERVER_PRIVKEY='{awg0_priv}'
+export AWG0_SERVER_PUBKEY='{awg0_pub}'
+export AWG0_PORT='{awg0_port}'
+export AWG0_JC='{awg0_jc}'
+export AWG0_JMIN='{awg0_jmin}'
+export AWG0_JMAX='{awg0_jmax}'
+export AWG0_S1='{awg0_s1}'
+export AWG0_S2='{awg0_s2}'
+export AWG0_S3='{awg0_s3}'
+export AWG0_S4='{awg0_s4}'
+export AWG0_H1='{awg0_h1}'
+export AWG0_H2='{awg0_h2}'
+export AWG0_H3='{awg0_h3}'
+export AWG0_H4='{awg0_h4}'
+
+export AWG1_SERVER_PRIVKEY='{awg1_priv}'
+export AWG1_SERVER_PUBKEY='{awg1_pub}'
+export AWG1_PORT='{awg1_port}'
+export AWG1_JC='{awg1_jc}'
+export AWG1_JMIN='{awg1_jmin}'
+export AWG1_JMAX='{awg1_jmax}'
+export AWG1_S1='{awg1_s1}'
+export AWG1_S2='{awg1_s2}'
+export AWG1_S3='{awg1_s3}'
+export AWG1_S4='{awg1_s4}'
+export AWG1_H1='{awg1_h1}'
+export AWG1_H2='{awg1_h2}'
+export AWG1_H3='{awg1_h3}'
+export AWG1_H4='{awg1_h4}'
+export AWG1_HEADER_PROTECTION_KEY='{awg1_hpk}'
+export AWG1_CONTENT_PADDING_ADDITION='{awg1_cpa}'
+
+export HY2_PORT='{hy2_port}'
+export GECKO_OBFS_KEY='{gecko_key}'
+""")
+PYEOF
+
+source /tmp/wallrose_env_vars.sh
+rm -f /tmp/wallrose_env_vars.sh
+log_ok "Configurations and random cryptographic parameters initialized."
+
+# 6. Hysteria 2 Binary & Self-Signed TLS Certificate
+log_info "Verifying Hysteria 2 daemon binary..."
+HY2_VERSION="v2.13.0"
+HY2_URL="https://github.com/apernet/hysteria/releases/download/app%2F${HY2_VERSION}/hysteria-linux-${HY2_ARCH}"
+
+mkdir -p /etc/hysteria /var/log/hysteria
+if [[ ! -f /usr/local/bin/hysteria ]]; then
+  curl -fsSL "$HY2_URL" -o /usr/local/bin/hysteria || {
+    log_warn "Direct download failed. Attempting official get script..."
+    bash <(curl -fsSL https://get.hy2.sh/) || true
+  }
+  chmod +x /usr/local/bin/hysteria 2>/dev/null || true
+fi
+
+# Self-signed RSA-2048 Certificate generation with IP SAN (DNS first, IP second)
+if [[ ! -f /etc/hysteria/server.crt || ! -f /etc/hysteria/server.key ]]; then
+  log_info "Generating self-signed RSA-2048 TLS certificate with IP SAN ($PUBLIC_IP)..."
+  openssl req -x509 -nodes -newkey rsa:2048 \
+    -keyout /etc/hysteria/server.key \
+    -out /etc/hysteria/server.crt \
+    -days 3650 \
+    -subj "/CN=gateway.cloudflare.com" \
+    -addext "subjectAltName=DNS:gateway.cloudflare.com,IP:$PUBLIC_IP" > /dev/null 2>&1
+  chmod 600 /etc/hysteria/server.key
+  chmod 644 /etc/hysteria/server.crt
+fi
+
+# 7. Unbound Local DNS Resolver (AppArmor Guard & IP Freebind)
 log_info "Configuring Unbound DoT DNS resolver (10.8.0.1 / 10.9.0.1)..."
 
-# Relax AppArmor net_admin restriction for Unbound on modern Ubuntu kernels
 mkdir -p /etc/apparmor.d/local
 if [ ! -f /etc/apparmor.d/local/usr.sbin.unbound ]; then
   echo "capability net_admin," > /etc/apparmor.d/local/usr.sbin.unbound
@@ -358,8 +599,13 @@ EOF
 
 systemctl restart unbound || log_warn "Unbound restart pending tunnel initialization."
 
-# 7. Netfilter Firewall, MSS Clamping & Port Hopping
-log_info "Configuring iptables NAT, MSS Clamping, and Port Hopping (20000:50000 -> 4433)..."
+# 8. Netfilter Firewall & MSS Clamping (NO Port Hopping)
+log_info "Configuring iptables NAT and MSS Clamping..."
+
+# Purge any legacy port-hopping redirect rule
+iptables -t nat -D PREROUTING -i "$WAN_IF" -p udp --dport 20000:50000 -j REDIRECT --to-ports 4433 2>/dev/null || true
+iptables -t nat -D PREROUTING -p udp --dport 20000:50000 -j REDIRECT --to-ports 4433 2>/dev/null || true
+
 # Enable NAT Masquerade for VPN Subnets
 iptables -t nat -C POSTROUTING -s 10.8.0.0/24 -o "$WAN_IF" -j MASQUERADE 2>/dev/null || \
   iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o "$WAN_IF" -j MASQUERADE
@@ -371,15 +617,16 @@ iptables -t nat -C POSTROUTING -s 10.9.0.0/24 -o "$WAN_IF" -j MASQUERADE 2>/dev/
 iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || \
   iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 
-# Hysteria 2 Port Hopping (Redirect UDP 20000:50000 -> 4433)
-iptables -t nat -C PREROUTING -i "$WAN_IF" -p udp --dport 20000:50000 -j REDIRECT --to-ports 4433 2>/dev/null || \
-  iptables -t nat -A PREROUTING -i "$WAN_IF" -p udp --dport 20000:50000 -j REDIRECT --to-ports 4433
+# Allow incoming protocol ports
+iptables -C INPUT -p udp --dport "$AWG0_PORT" -j ACCEPT 2>/dev/null || iptables -A INPUT -p udp --dport "$AWG0_PORT" -j ACCEPT 2>/dev/null || true
+iptables -C INPUT -p udp --dport "$AWG1_PORT" -j ACCEPT 2>/dev/null || iptables -A INPUT -p udp --dport "$AWG1_PORT" -j ACCEPT 2>/dev/null || true
+iptables -C INPUT -p udp --dport "$HY2_PORT" -j ACCEPT 2>/dev/null || iptables -A INPUT -p udp --dport "$HY2_PORT" -j ACCEPT 2>/dev/null || true
+iptables -C INPUT -p tcp --dport "$PANEL_PORT" -j ACCEPT 2>/dev/null || iptables -A INPUT -p tcp --dport "$PANEL_PORT" -j ACCEPT 2>/dev/null || true
 
-# Persist iptables rules
-netfilter-persistent save || true
+netfilter-persistent save 2>/dev/null || true
 log_ok "Firewall rules activated and persisted."
 
-# 8. Deploy Wall Rose Python Backend
+# 9. Deploy Wall Rose Python Backend
 INSTALL_DIR="/opt/wallrose"
 log_info "Installing Wall Rose backend to $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR"
@@ -393,7 +640,8 @@ else
   SOURCE_DIR="."
 fi
 
-cp -r "$SOURCE_DIR/backend" "$INSTALL_DIR/"
+mkdir -p "$INSTALL_DIR/backend/data"
+cp -r "$SOURCE_DIR/backend"/* "$INSTALL_DIR/backend/"
 cp -r "$SOURCE_DIR/static" "$INSTALL_DIR/"
 if [[ -n "${TMP_REPO:-}" && -d "${TMP_REPO:-}" ]]; then
   rm -rf "$TMP_REPO"
@@ -404,51 +652,83 @@ python3 -m venv "$INSTALL_DIR/venv"
 "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
 "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/backend/requirements.txt"
 
-# Configure Web Panel Port & Admin Credentials
-PANEL_PORT="${PORT:-8000}"
-if ss -tuln 2>/dev/null | grep -q ":${PANEL_PORT}\b"; then
-    log_warn "Port ${PANEL_PORT} is currently in use by another process! You can override it with: PORT=8080 bash install.sh"
-fi
-
+# Admin Master Password & Session Secret Token
 if [ -z "${ADMIN_PASSWORD:-}" ]; then
-    # Generate 16-character cryptographically secure master password
-    ADMIN_PASS=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 16)
+  ADMIN_PASS=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 16)
 else
-    ADMIN_PASS="$ADMIN_PASSWORD"
+  ADMIN_PASS="$ADMIN_PASSWORD"
 fi
 SECRET_TOKEN=$(openssl rand -hex 32)
 
+# Single Source of Truth: write exact synchronized variables to .env
 cat > "$INSTALL_DIR/backend/.env" << EOF
 HOST=0.0.0.0
 PORT=${PANEL_PORT}
 SERVER_PUBLIC_IP=${PUBLIC_IP}
 ADMIN_PASSWORD=${ADMIN_PASS}
 SECRET_KEY=${SECRET_TOKEN}
-HY2_OBFS_PASSWORD=${GECKO_OBFS_KEY}
+DATABASE_PATH=${INSTALL_DIR}/backend/data/wallrose.db
+
+AWG0_PORT=${AWG0_PORT}
+AWG0_CONFIG_PATH=/etc/amnezia/amneziawg/awg0-userspace.conf
+AWG0_SERVER_PUBLIC_KEY=${AWG0_SERVER_PUBKEY}
+AWG0_JC=${AWG0_JC}
+AWG0_JMIN=${AWG0_JMIN}
+AWG0_JMAX=${AWG0_JMAX}
+AWG0_S1=${AWG0_S1}
+AWG0_S2=${AWG0_S2}
+AWG0_S3=${AWG0_S3}
+AWG0_S4=${AWG0_S4}
+AWG0_H1=${AWG0_H1}
+AWG0_H2=${AWG0_H2}
+AWG0_H3=${AWG0_H3}
+AWG0_H4=${AWG0_H4}
+
+AWG1_PORT=${AWG1_PORT}
+AWG1_CONFIG_PATH=/etc/amnezia/amneziawg/awg1-userspace.conf
+AWG1_SERVER_PUBLIC_KEY=${AWG1_SERVER_PUBKEY}
+AWG1_JC=${AWG1_JC}
+AWG1_JMIN=${AWG1_JMIN}
+AWG1_JMAX=${AWG1_JMAX}
+AWG1_S1=${AWG1_S1}
+AWG1_S2=${AWG1_S2}
+AWG1_S3=${AWG1_S3}
+AWG1_S4=${AWG1_S4}
+AWG1_H1=${AWG1_H1}
+AWG1_H2=${AWG1_H2}
+AWG1_H3=${AWG1_H3}
+AWG1_H4=${AWG1_H4}
+AWG1_HEADER_PROTECTION_KEY=${AWG1_HEADER_PROTECTION_KEY}
+AWG1_CONTENT_PADDING_ADDITION=${AWG1_CONTENT_PADDING_ADDITION}
+
+HY2_PORT=${HY2_PORT}
+HY2_CONFIG_PATH=/etc/hysteria/config.yaml
 HY2_OBFS_TYPE=gecko
+HY2_OBFS_PASSWORD=${GECKO_OBFS_KEY}
 HY2_OBFS_MIN_PACKET=512
 HY2_OBFS_MAX_PACKET=1200
-AWG0_SERVER_PUBLIC_KEY=${AWG0_SERVER_PUBKEY}
-AWG1_SERVER_PUBLIC_KEY=${AWG1_SERVER_PUBKEY}
-DATABASE_PATH=${INSTALL_DIR}/backend/data/wallrose.db
 EOF
 chmod 600 "$INSTALL_DIR/backend/.env"
 
-# Save administrative credentials copy with 600 permissions
+# Save administrative credentials copy
 mkdir -p /root/.wallrose
 cat > /root/.wallrose/credentials.txt << EOF
 URL: http://${PUBLIC_IP}:${PANEL_PORT}/
 MASTER_PASSWORD: ${ADMIN_PASS}
+HYSTERIA_PORT: ${HY2_PORT}
 HYSTERIA_GECKO_KEY: ${GECKO_OBFS_KEY}
+AWG0_PORT: ${AWG0_PORT}
+AWG1_PORT: ${AWG1_PORT}
 EOF
 chmod 600 /root/.wallrose/credentials.txt
 
-# 9. Systemd Service Deployment
-log_info "Deploying systemd service unit (wallrose-panel.service on port ${PANEL_PORT})..."
+# 10. Systemd Services Deployment & Startup
+log_info "Deploying systemd service units..."
 cat > /etc/systemd/system/wallrose-panel.service << EOF
 [Unit]
 Description=Wall Rose (ウォール・ローゼ) Multi-Protocol Personal VPN Gateway Panel
 After=network.target network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
@@ -463,11 +743,11 @@ LimitNOFILE=65535
 WantedBy=multi-user.target
 EOF
 
-# Hysteria 2 Service Unit
 cat > /etc/systemd/system/hysteria-server.service << 'EOF'
 [Unit]
 Description=Hysteria 2 QUIC VPN Daemon
-After=network.target
+After=network.target network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
@@ -482,13 +762,13 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
+systemctl enable --now awg0-go || true
+systemctl enable --now awg1-go || true
 systemctl enable --now hysteria-server || true
 systemctl enable --now wallrose-panel
 
-# 10. Final Verification & Output
+# 11. Final Verification & Output
 sleep 2
-systemctl is-active --quiet wallrose-panel && PANEL_ACTIVE=true || PANEL_ACTIVE=false
-
 echo ""
 print_banner
 echo ""
@@ -500,9 +780,9 @@ echo -e "  ${CLR_YELLOW}Master Password:${CLR_RESET}     ${ADMIN_PASS}"
 echo -e "  ${CLR_CYAN}Auth Note:${CLR_RESET}           No username required (single master password entry)"
 echo -e "  ${CLR_YELLOW}OpenAPI Spec:${CLR_RESET}        http://${PUBLIC_IP}:${PANEL_PORT}/docs"
 echo -e "------------------------------------------------------------------------"
-echo -e "  ${CLR_CYAN}AmneziaWG 2.0:${CLR_RESET}        awg0 (UDP 51820, subnet 10.8.0.0/24)"
-echo -e "  ${CLR_CYAN}AmneziaWG 3.1:${CLR_RESET}        awg1 (UDP 51821, subnet 10.9.0.0/24)"
-echo -e "  ${CLR_CYAN}Hysteria 2.0:${CLR_RESET}         UDP 4433 (Port Hopping 20000:50000)"
+echo -e "  ${CLR_CYAN}AmneziaWG 2.0:${CLR_RESET}        awg0 (UDP ${AWG0_PORT}, subnet 10.8.0.0/24, userspace)"
+echo -e "  ${CLR_CYAN}AmneziaWG 3.1:${CLR_RESET}        awg1 (UDP ${AWG1_PORT}, subnet 10.9.0.0/24, userspace v3)"
+echo -e "  ${CLR_CYAN}Hysteria 2.0:${CLR_RESET}         UDP ${HY2_PORT} (QUIC Gecko, single port)"
 echo -e "  ${CLR_CYAN}Gecko Obfs:${CLR_RESET}           ${GECKO_OBFS_KEY} (min: 512, max: 1200)"
 echo -e "  ${CLR_CYAN}Saved Creds:${CLR_RESET}          /root/.wallrose/credentials.txt (chmod 600)"
 echo -e "${CLR_GREEN}========================================================================${CLR_RESET}"

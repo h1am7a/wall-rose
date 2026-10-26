@@ -592,6 +592,18 @@ def get_awg_server_params(interface: str) -> Dict[str, Any]:
                             params[k_lower] = v_val.strip("\"'")
                         elif k_lower in ("headerprotectionkey", "header-protection-key"):
                             params["header_protection_key"] = v_val.strip("\"'")
+                        elif k_lower in ("contentpaddingaddition", "content-padding-addition"):
+                            params["content_padding_addition"] = v_val.strip("\"'")
+                        elif k_lower in ("rekeyaftertime", "rekey-after-time"):
+                            params["rekey_after_time"] = int(v_val) if v_val.isdigit() else v_val.strip("\"'")
+                        elif k_lower in ("rekeytimeout", "rekey-timeout"):
+                            params["rekey_timeout"] = int(v_val) if v_val.isdigit() else v_val.strip("\"'")
+                        elif k_lower in ("rejectaftertime", "reject-after-time"):
+                            params["reject_after_time"] = int(v_val) if v_val.isdigit() else v_val.strip("\"'")
+                        elif k_lower in ("keepalivetimeout", "keepalive-timeout"):
+                            params["keepalive_timeout"] = int(v_val) if v_val.isdigit() else v_val.strip("\"'")
+                        elif k_lower in ("maxhandshakeattempts", "max-handshake-attempts"):
+                            params["max_handshake_attempts"] = int(v_val) if v_val.isdigit() else v_val.strip("\"'")
         except Exception as e:
             logger.warning(f"Notice reading params from {conf_path}: {e}")
 
