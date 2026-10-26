@@ -19,8 +19,8 @@ router = APIRouter(prefix="/api/cores", tags=["Protocol Engines"], dependencies=
 def get_service_unit_name(core_id: str) -> str:
     """Map core_id to systemd service unit name."""
     mapping = {
-        "awg0": "awg-quick@awg0",
-        "awg1": "awg-quick@awg1",
+        "awg0": "awg0-go",
+        "awg1": "awg1-go",
         "hy2": "hysteria-server",
     }
     return mapping.get(core_id, core_id)
@@ -90,30 +90,35 @@ Address = 10.8.0.1/24
 ListenPort = {core.port}
 PrivateKey = SERVER_AWG0_PRIVATE_KEY
 Jc = 4
-Jmin = 40
-Jmax = 70
-S1 = 15
-S2 = 39
-H1 = 1
-H2 = 2
-H3 = 3
-H4 = 4
+Jmin = 10
+Jmax = 50
+S1 = 135
+S2 = 60
+S3 = 30
+S4 = 20
+H1 = 1083421938
+H2 = 462568195
+H3 = 1293323502
+H4 = 14735819
 """
         elif core_id == "awg1":
-            content = f"""# Wall Rose AmneziaWG 3.1 Server Configuration (Stealth ChaCha20)
+            content = f"""# Wall Rose AmneziaWG 3.1 Server Configuration (userspace, Header Protection)
 [Interface]
 Address = 10.9.0.1/24
 ListenPort = {core.port}
 PrivateKey = SERVER_AWG1_PRIVATE_KEY
-Jc = 7
-Jmin = 64
-Jmax = 128
-S1 = 28
-S2 = 56
-H1 = 5
-H2 = 6
-H3 = 7
-H4 = 8
+Jc = 2
+Jmin = 10
+Jmax = 50
+S1 = 99
+S2 = 24
+S3 = 66
+S4 = 33
+H1 = 1181749209
+H2 = 1261551410
+H3 = 945272617
+H4 = 1069973896
+HeaderProtectionKey = bMW0vZGGH93f6frnPdrtKtW3gMF1LoC4TOnuW4fu0ig=
 """
         else:
             content = f"""# Wall Rose Hysteria 2.13 Server Configuration
@@ -126,7 +131,7 @@ tls:
 obfs:
   type: gecko
   gecko:
-    password: GECKO_OBFS_KEY
+    password: 833801695663fc3f3a336bda12e35251
     minPacketSize: 512
     maxPacketSize: 1200
 

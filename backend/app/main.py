@@ -23,11 +23,11 @@ Wall Rose delivers an ultra-lightweight, zero-bloat VPN management platform engi
 ---
 
 ### Key Capabilities
-- **AmneziaWG 3.1 (`awg1`):** Advanced ChaCha20 encrypted headers (`header-protection-key`) and dynamic packet padding.
-- **AmneziaWG 2.0 (`awg0`):** WireGuard-compatible fixed UDP socket for older hardware routers and legacy clients.
-- **Hysteria 2.13+ (`hy2`):** QUIC protocol with Gecko DPI-fragmentation obfuscation and Port Hopping (`20000:50000`).
-- **Dynamic Mihomo Subscription (`/sub/{token}`):** Smart failover (`fallback` group) with rule-based routing for Russian domestic services and critical bypasses (YouTube, Discord, Telegram).
-- **Zero-Downtime Kernel Mutation:** Peers are added directly into kernel memory via `awg set` without rebooting daemons.
+- **AmneziaWG 3.1 (`awg1`):** Userspace `amneziawg-go` daemon with version 3 header protection (`header-protection-key`) and dynamic packet trailers.
+- **AmneziaWG 2.0 (`awg0`):** Userspace `amneziawg-go` daemon with version 2 junk packet obfuscation.
+- **Hysteria 2.13+ (`hy2`):** QUIC protocol with Gecko DPI-fragmentation obfuscation listening on port 443.
+- **Dynamic Trinity Mihomo Subscription (`/sub/{token}`):** Automatic failover (`AUTO-FAILOVER`) and manual selection (`TRINITY`) with Russian domestic split-routing (`DIRECT` for Russian domains/IPs, VPN for everything else).
+- **Userspace Daemon Synchronization:** Peers are managed atomically in userspace configuration files (`*-userspace.conf`) with fast UAPI domain socket metrics queries.
 - **Micro-Footprint Backend:** Pure Python 3.11+ / FastAPI / SQLite WAL architecture requiring **<45 MB RAM**.
 """
 

@@ -202,31 +202,34 @@ def test_mihomo_yaml_structure():
 
     # Verify proxies
     proxy_names = [p["name"] for p in data["proxies"]]
-    assert "AWG-3.1-Primary" in proxy_names
-    assert "AWG-2.0-Secondary" in proxy_names
-    assert "Hy2-Gecko-Backup" in proxy_names
+    assert "AWG1-v3" in proxy_names
+    assert "AWG0-v2" in proxy_names
+    assert "Hy2-gecko" in proxy_names
 
     # Verify AWG 3.1 stealth obfuscation keys
-    awg31 = next(p for p in data["proxies"] if p["name"] == "AWG-3.1-Primary")
+    awg31 = next(p for p in data["proxies"] if p["name"] == "AWG1-v3")
     assert awg31["server"] == "203.0.113.1"
-    assert "amnezia" in awg31
-    assert awg31["amnezia"]["jc"] == 7
-    assert awg31["amnezia"]["s1"] == 28
+    assert "amnezia-wg-option" in awg31
+    assert awg31["amnezia-wg-option"]["version"] == 3
+    assert awg31["amnezia-wg-option"]["jc"] == 2
+    assert awg31["amnezia-wg-option"]["s1"] == 99
 
     # Verify Fallback failover configuration
     failover_group = next(g for g in data["proxy-groups"] if g["name"] == "AUTO-FAILOVER")
     assert failover_group["type"] == "fallback"
-    assert failover_group["lazy"] is True
-    assert failover_group["proxies"] == ["AWG-3.1-Primary", "AWG-2.0-Secondary", "Hy2-Gecko-Backup"]
+    assert failover_group["lazy"] is False
+    assert failover_group["proxies"] == ["AWG1-v3", "AWG0-v2", "Hy2-gecko"]
 
-    # Verify rule ordering
+    # Verify TRINITY group
+    trinity_group = next(g for g in data["proxy-groups"] if g["name"] == "TRINITY")
+    assert trinity_group["type"] == "select"
+
+    # Verify rule ordering and matching
     rules = data["rules"]
-    # Rule 0 must be private IP
-    assert "GEOIP,private,DIRECT,no-resolve" in rules[0]
-    # YouTube, Discord, Telegram must be above category-ru
-    idx_yt = next(i for i, r in enumerate(rules) if "youtube" in r)
-    idx_ru = next(i for i, r in enumerate(rules) if "category-ru" in r)
-    assert idx_yt < idx_ru, "YouTube bypass must precede category-ru DIRECT"
+    assert any("category-ru" in r and "DIRECT" in r for r in rules)
+    assert any("gov.ru" in r and "DIRECT" in r for r in rules)
+    assert any("geoip-ru" in r and "DIRECT" in r for r in rules)
+    assert rules[-1] == "MATCH,TRINITY"
 
 def test_singbox_json_structure():
     peer = dummy_peer()

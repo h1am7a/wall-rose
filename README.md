@@ -19,9 +19,9 @@ The backend is built with FastAPI and SQLite WAL, maintaining an idle memory foo
 
 ### Protocols
 
-- **AmneziaWG 3.1:** ChaCha20 encrypted header protection and randomized packet padding to resist heuristic DPI filters.
-- **AmneziaWG 2.0:** Fixed WireGuard UDP socket compatibility for Keenetic, OpenWrt, and legacy clients.
-- **Hysteria 2.0:** QUIC-based transport with Gecko packet fragmentation obfuscation and port hopping (`20000:50000 -> 4433`) for high-loss cellular connections.
+- **AmneziaWG 3.1:** Userspace `amneziawg-go` daemon (`awg1-go`) with version 3 header protection (`header-protection-key`) and randomized packet padding.
+- **AmneziaWG 2.0:** Userspace `amneziawg-go` daemon (`awg0-go`) with version 2 junk packet obfuscation for hardware routers and legacy clients.
+- **Hysteria 2.0:** QUIC-based transport on port 443 with Gecko packet fragmentation obfuscation (`obfs: gecko`, `512:1200`) for high-loss cellular connections.
 
 ---
 
@@ -43,9 +43,9 @@ flowchart TD
         end
 
         subgraph Daemons ["Protocol Daemons"]
-            AWG31["AmneziaWG 3.1 (awg1)<br>ChaCha20 Headers | UDP 51821"]
-            AWG20["AmneziaWG 2.0 (awg0)<br>Fixed Socket | UDP 51820"]
-            HY2["Hysteria 2.0 (hy2)<br>Gecko QUIC | Port Hop 20000:50000"]
+            AWG31["AmneziaWG 3.1 (awg1-go)<br>v3 Headers | UDP 51821"]
+            AWG20["AmneziaWG 2.0 (awg0-go)<br>v2 Obfuscation | UDP 51820"]
+            HY2["Hysteria 2.0 (hy2)<br>Gecko QUIC | Port 443"]
         end
 
         subgraph DNS ["DNS Subsystem"]
@@ -54,7 +54,7 @@ flowchart TD
     end
 
     SubEndpoint --> Backend
-    API -->|"awg set"| Daemons
+    API -->|"*-userspace.conf & UAPI"| Daemons
     HY2 -->|"POST /api/v1/hysteria/auth"| Cache
     Daemons --> Unbound
 ```
@@ -93,7 +93,7 @@ The installer automatically configures:
 2. In the client, add subscription via URL: `http://<SERVER_IP>:8000/sub/<TOKEN>`
 3. Set update interval to 24 hours.
 
-Configurations use deterministic `fallback` with `lazy: true`, routing domestic services directly and routing blocked domains and throttled services through the VPN mesh.
+Configurations follow the Trinity split-routing standard with `AUTO-FAILOVER` (fallback interval 60s, timeout 5s, active probe) and `TRINITY` (manual selector), routing Russian domestic services directly (`category-ru`, `gov.ru`, `geoip-ru`) and all blocked/international traffic through the VPN mesh.
 
 ### Sing-box (iOS, Android, macOS, Linux)
 1. Click **Sing-box** on the device card.

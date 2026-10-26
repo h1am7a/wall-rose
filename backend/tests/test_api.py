@@ -64,12 +64,13 @@ async def test_full_gateway_lifecycle():
         assert sub_resp.status_code == 200
         assert "Subscription-Userinfo" in sub_resp.headers
         yaml_content = sub_resp.text
-        assert "AWG-3.1-Primary" in yaml_content
-        assert "AWG-2.0-Secondary" in yaml_content
-        assert "Hy2-Gecko-Backup" in yaml_content
+        assert "AWG1-v3" in yaml_content
+        assert "AWG0-v2" in yaml_content
+        assert "Hy2-gecko" in yaml_content
         assert "AUTO-FAILOVER" in yaml_content
-        assert "RULE-SET,youtube,AUTO-FAILOVER" in yaml_content
+        assert "TRINITY" in yaml_content
         assert "RULE-SET,category-ru,DIRECT" in yaml_content
+        assert "MATCH,TRINITY" in yaml_content
 
         # 7. Test Mobile HTML Landing Delivery
         html_resp = await ac.get(f"/sub/{sub_token}", headers={"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0)"})
