@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class AdminLoginRequest(BaseModel):
     """Admin authentication credentials payload."""
-    password: str = Field(..., description="Master administrator key / password", examples=["wallrose2026"])
+    password: str = Field(..., description="Master administrator key / password", examples=["ADMIN_PASSWORD"])
 
 class AdminLoginResponse(BaseModel):
     """Admin login success response containing session token."""
@@ -104,7 +104,7 @@ class ProtocolCoreResponse(BaseModel):
     core_id: str = Field(..., description="Core machine ID", examples=["awg0", "awg1", "hy2"])
     display_name: str = Field(..., description="Display title", examples=["AmneziaWG 2.0 (awg0)"])
     protocol: str = Field(..., description="Internal protocol type", examples=["amneziawg_v2"])
-    port: int = Field(..., description="Listening network port", examples=[51820])
+    port: int = Field(..., description="Listening network port", examples=[50000])
     subnet: str = Field(..., description="Allocated IP subnet or mode", examples=["10.8.0.0/24"])
     is_active: bool = Field(..., description="Whether core is running according to systemd", examples=[True])
     uptime_seconds: int = Field(..., description="Uptime duration in seconds", examples=[345600])

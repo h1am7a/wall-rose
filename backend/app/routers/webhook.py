@@ -11,6 +11,7 @@ from app.models import Peer
 from app.schemas import HysteriaAuthRequest, HysteriaAuthResponse, ApiResponse
 from app.core_manager import auth_cache
 from app.security import require_admin, verify_admin_session
+from app.traffic_aggregator import aggregate_traffic_once
 
 router = APIRouter(prefix="/api/v1/hysteria", tags=["Hysteria 2 Integration"])
 
@@ -31,35 +32,14 @@ async def hysteria_http_auth(payload: HysteriaAuthRequest, request: Request):
 @router.post(
     "/sync-traffic",
     response_model=ApiResponse,
-    summary="Poll Hysteria 2 Traffic Metrics",
-    description="Periodically polls Hysteria 2 traffic stats API (127.0.0.1:9999) and updates peer transfer records in SQLite.",
+    summary="Trigger Unified Traffic Aggregation",
+    description="Manual call-through to unified background traffic aggregator. Ensures exactly ONE owner reads /traffic?clear=1 to prevent delta loss.",
     dependencies=[Depends(require_admin)]
 )
-async def sync_hysteria_traffic(db: AsyncSession = Depends(get_db)):
+async def sync_hysteria_traffic():
     try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
-            resp = await client.get(settings.HY2_TRAFFIC_STATS_URL)
-            if resp.status_code == 200:
-                data: Dict[str, Any] = resp.json()
-                now_ts = int(time.time())
-                
-                # data is keyed by user ID: { "user_alex": [tx_bytes, rx_bytes] }
-                for uid, stats in data.items():
-                    if isinstance(stats, list) and len(stats) >= 2:
-                        tx_delta, rx_delta = stats[0], stats[1]
-                        stmt = (
-                            update(Peer)
-                            .where(Peer.hy2_user == uid)
-                            .values(
-                                transfer_tx=Peer.transfer_tx + tx_delta,
-                                transfer_rx=Peer.transfer_rx + rx_delta,
-                                last_handshake=now_ts
-                            )
-                        )
-                        await db.execute(stmt)
-                await db.commit()
-                return ApiResponse(ok=True, message=f"Synced stats for {len(data)} Hysteria users")
+        res = await aggregate_traffic_once()
+        return ApiResponse(ok=res.get("ok", True), message=res.get("message", "Traffic aggregated successfully"))
     except Exception as e:
-        return ApiResponse(ok=False, message=f"Hysteria stats endpoint not reachable: {e}")
+        return ApiResponse(ok=False, message=f"Traffic aggregation failed: {e}")
 
-    return ApiResponse(ok=True, message="No traffic data reported")

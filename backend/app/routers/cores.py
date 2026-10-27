@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from app.config import settings
 from app.database import get_db
 from app.models import ProtocolCore
 from app.schemas import (
@@ -89,17 +90,17 @@ async def get_core_config(core_id: str, db: AsyncSession = Depends(get_db)):
 Address = 10.8.0.1/24
 ListenPort = {core.port}
 PrivateKey = SERVER_AWG0_PRIVATE_KEY
-Jc = 4
-Jmin = 10
-Jmax = 50
-S1 = 135
-S2 = 60
-S3 = 30
-S4 = 20
-H1 = 1083421938
-H2 = 462568195
-H3 = 1293323502
-H4 = 14735819
+Jc = {settings.AWG0_JC}
+Jmin = {settings.AWG0_JMIN}
+Jmax = {settings.AWG0_JMAX}
+S1 = {settings.AWG0_S1}
+S2 = {settings.AWG0_S2}
+S3 = {settings.AWG0_S3}
+S4 = {settings.AWG0_S4}
+H1 = {settings.AWG0_H1}
+H2 = {settings.AWG0_H2}
+H3 = {settings.AWG0_H3}
+H4 = {settings.AWG0_H4}
 """
         elif core_id == "awg1":
             content = f"""# Wall Rose AmneziaWG 3.1 Server Configuration (userspace, Header Protection)
@@ -107,18 +108,18 @@ H4 = 14735819
 Address = 10.9.0.1/24
 ListenPort = {core.port}
 PrivateKey = SERVER_AWG1_PRIVATE_KEY
-Jc = 2
-Jmin = 10
-Jmax = 50
-S1 = 99
-S2 = 24
-S3 = 66
-S4 = 33
-H1 = 1181749209
-H2 = 1261551410
-H3 = 945272617
-H4 = 1069973896
-HeaderProtectionKey = bMW0vZGGH93f6frnPdrtKtW3gMF1LoC4TOnuW4fu0ig=
+Jc = {settings.AWG1_JC}
+Jmin = {settings.AWG1_JMIN}
+Jmax = {settings.AWG1_JMAX}
+S1 = {settings.AWG1_S1}
+S2 = {settings.AWG1_S2}
+S3 = {settings.AWG1_S3}
+S4 = {settings.AWG1_S4}
+H1 = {settings.AWG1_H1}
+H2 = {settings.AWG1_H2}
+H3 = {settings.AWG1_H3}
+H4 = {settings.AWG1_H4}
+HeaderProtectionKey = {settings.AWG1_HEADER_PROTECTION_KEY}
 """
         else:
             content = f"""# Wall Rose Hysteria 2.13 Server Configuration
@@ -131,9 +132,9 @@ tls:
 obfs:
   type: gecko
   gecko:
-    password: 833801695663fc3f3a336bda12e35251
-    minPacketSize: 512
-    maxPacketSize: 1200
+    password: {settings.HY2_OBFS_PASSWORD}
+    minPacketSize: {settings.HY2_OBFS_MIN_PACKET}
+    maxPacketSize: {settings.HY2_OBFS_MAX_PACKET}
 
 auth:
   type: http

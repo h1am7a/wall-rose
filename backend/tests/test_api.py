@@ -63,13 +63,17 @@ async def test_full_gateway_lifecycle():
         sub_resp = await ac.get(f"/sub/{sub_token}", headers={"User-Agent": "ClashVerge/1.7.0"})
         assert sub_resp.status_code == 200
         assert "Subscription-Userinfo" in sub_resp.headers
+        assert "upload=" in sub_resp.headers["Subscription-Userinfo"]
+        assert "download=" in sub_resp.headers["Subscription-Userinfo"]
+        assert "total=" not in sub_resp.headers["Subscription-Userinfo"]
+        assert "expire=" not in sub_resp.headers["Subscription-Userinfo"]
         yaml_content = sub_resp.text
         assert "AWG1-v3" in yaml_content
         assert "AWG0-v2" in yaml_content
         assert "Hy2-gecko" in yaml_content
         assert "AUTO-FAILOVER" in yaml_content
         assert "TRINITY" in yaml_content
-        assert "RULE-SET,category-ru,DIRECT" in yaml_content
+        assert "IP-CIDR,127.0.0.0/8,DIRECT,no-resolve" in yaml_content
         assert "MATCH,TRINITY" in yaml_content
 
         # 7. Test Mobile HTML Landing Delivery

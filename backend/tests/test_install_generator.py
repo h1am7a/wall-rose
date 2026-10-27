@@ -68,12 +68,12 @@ def test_install_config_generation_and_sub_matching():
         if "privatekey" in awg0_kv and len(awg0_kv["privatekey"]) >= 32:
             awg0_priv = awg0_kv["privatekey"]
             awg0_pub = derive_pubkey_from_priv(awg0_priv)
-            awg0_port = awg0_kv.get("listenport", "51820")
+            awg0_port = awg0_kv.get("listenport", "49120")
             awg0_jc = awg0_kv.get("jc", "4")
-            awg0_h1 = awg0_kv.get("h1", "1083421938")
+            awg0_h1 = awg0_kv.get("h1", "1234567890")
         else:
             awg0_priv, awg0_pub = gen_x25519_keypair()
-            awg0_port = "51820"
+            awg0_port = "49120"
             awg0_jc = str(secrets.randbelow(7) + 2)
             awg0_jmin = str(secrets.randbelow(21) + 10)
             awg0_jmax = str(secrets.randbelow(51) + 40)
@@ -108,12 +108,12 @@ H4 = {awg0_h4}
         if "privatekey" in awg1_kv and len(awg1_kv["privatekey"]) >= 32:
             awg1_priv = awg1_kv["privatekey"]
             awg1_pub = derive_pubkey_from_priv(awg1_priv)
-            awg1_port = awg1_kv.get("listenport", "51821")
+            awg1_port = awg1_kv.get("listenport", "49121")
             awg1_hpk = awg1_kv.get("headerprotectionkey", "")
-            awg1_h1 = awg1_kv.get("h1", "1181749209")
+            awg1_h1 = awg1_kv.get("h1", "1234567891")
         else:
             awg1_priv, awg1_pub = gen_x25519_keypair()
-            awg1_port = "51821"
+            awg1_port = "49121"
             awg1_jc = str(secrets.randbelow(7) + 2)
             awg1_jmin = str(secrets.randbelow(21) + 10)
             awg1_jmax = str(secrets.randbelow(51) + 40)
@@ -232,7 +232,7 @@ trafficStats:
             status="ACTIVE"
         )
 
-        sub_yaml = generate_mihomo_yaml(peer, server_ip="144.31.158.144")
+        sub_yaml = generate_mihomo_yaml(peer, server_ip="198.51.100.1")
         data = yaml.safe_load(sub_yaml)
 
         # AWG1 in sub matches awg1-userspace.conf

@@ -100,8 +100,8 @@ async def list_peers(
         m = metrics_awg1.get(p.awg1_pubkey) or metrics_awg0.get(p.awg0_pubkey)
         if m and m["latest_handshake"] > (p.last_handshake or 0):
             p.last_handshake = m["latest_handshake"]
-            p.transfer_rx = m["transfer_rx"]
-            p.transfer_tx = m["transfer_tx"]
+            # Note: transfer_rx and transfer_tx are monotonically accumulated across
+            # AWG0, AWG1, and Hysteria 2 by the unified background traffic_aggregator.
         
         results.append(serialize_peer_response(p))
     return results

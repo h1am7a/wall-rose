@@ -96,14 +96,12 @@ async def get_subscription(
             detail="Device subscription is currently suspended by administrator"
         )
 
-    # Calculate traffic stats for client GUI header
+    # Calculate traffic stats for client GUI header (total/expire intentionally omitted — unmetered)
     rx = peer.transfer_rx or 0
     tx = peer.transfer_tx or 0
-    total_bytes = 1024 * 1024 * 1024 * 1000  # 1 TB soft quota
-    expire_timestamp = 1893456000             # Future expiration placeholder
 
     # Inject standard subscription metadata headers
-    response.headers["Subscription-Userinfo"] = f"upload={tx}; download={rx}; total={total_bytes}; expire={expire_timestamp}"
+    response.headers["Subscription-Userinfo"] = f"upload={tx}; download={rx}"
     response.headers["profile-update-interval"] = "24"
     response.headers["content-disposition"] = f'inline; filename="{peer.name}"'
 

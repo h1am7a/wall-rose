@@ -187,7 +187,7 @@ elif command -v wg &>/dev/null; then
 fi
 
 ip address replace "$ADDR" dev "$IFACE" 2>/dev/null || ip address add "$ADDR" dev "$IFACE" 2>/dev/null || true
-ip link set mtu 1420 up dev "$IFACE" 2>/dev/null || true
+ip link set mtu 1280 up dev "$IFACE" 2>/dev/null || true
 
 wait "$DAEMON_PID"
 EOF
@@ -307,6 +307,21 @@ def parse_ini_kv(path):
                     kv[k.strip().lower()] = v.strip().strip("\"'")
     return kv
 
+def get_free_udp_port():
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.bind(('', 0))
+        return str(s.getsockname()[1])
+
+def gen_collision_free_s():
+    while True:
+        s1 = secrets.randbelow(181) + 20
+        s2 = secrets.randbelow(181) + 20
+        s3 = secrets.randbelow(181) + 20
+        s4 = secrets.randbelow(181) + 20
+        if len({148 + s1, 92 + s2, 64 + s3, 32 + s4}) == 4:
+            return str(s1), str(s2), str(s3), str(s4)
+
 # --- AWG0 (v2) Configuration ---
 awg0_conf = "/etc/amnezia/amneziawg/awg0-userspace.conf"
 awg0_kv = parse_ini_kv(awg0_conf)
@@ -314,7 +329,7 @@ awg0_kv = parse_ini_kv(awg0_conf)
 if "privatekey" in awg0_kv and len(awg0_kv["privatekey"]) >= 32:
     awg0_priv = awg0_kv["privatekey"]
     awg0_pub = derive_pubkey_from_priv(awg0_priv)
-    awg0_port = awg0_kv.get("listenport", "51820")
+    awg0_port = awg0_kv.get("listenport") or os.environ.get("AWG0_PORT") or get_free_udp_port()
     awg0_jc = awg0_kv.get("jc", "4")
     awg0_jmin = awg0_kv.get("jmin", "10")
     awg0_jmax = awg0_kv.get("jmax", "50")
@@ -322,21 +337,18 @@ if "privatekey" in awg0_kv and len(awg0_kv["privatekey"]) >= 32:
     awg0_s2 = awg0_kv.get("s2", "60")
     awg0_s3 = awg0_kv.get("s3", "30")
     awg0_s4 = awg0_kv.get("s4", "20")
-    awg0_h1 = awg0_kv.get("h1", "1083421938")
-    awg0_h2 = awg0_kv.get("h2", "462568195")
-    awg0_h3 = awg0_kv.get("h3", "1293323502")
-    awg0_h4 = awg0_kv.get("h4", "14735819")
+    awg0_h1 = awg0_kv.get("h1") or str(secrets.randbelow(1000000000) + 1000000000)
+    awg0_h2 = awg0_kv.get("h2") or str(secrets.randbelow(1000000000) + 1000000000)
+    awg0_h3 = awg0_kv.get("h3") or str(secrets.randbelow(1000000000) + 1000000000)
+    awg0_h4 = awg0_kv.get("h4") or str(secrets.randbelow(1000000000) + 1000000000)
 else:
     awg0_priv, awg0_pub = gen_x25519_keypair()
-    awg0_port = os.environ.get("AWG0_PORT", "51820")
+    awg0_port = os.environ.get("AWG0_PORT") or get_free_udp_port()
     awg0_jc = str(secrets.randbelow(7) + 2)          # 2..8
     awg0_jmin = str(secrets.randbelow(21) + 10)       # 10..30
     awg0_jmax = str(secrets.randbelow(51) + 40)       # 40..90
-    awg0_s1 = str(secrets.randbelow(181) + 20)        # 20..200
-    awg0_s2 = str(secrets.randbelow(181) + 20)
-    awg0_s3 = str(secrets.randbelow(181) + 20)
-    awg0_s4 = str(secrets.randbelow(181) + 20)
-    awg0_h1 = str(secrets.randbelow(1000000000) + 1000000000) # 10 digits
+    awg0_s1, awg0_s2, awg0_s3, awg0_s4 = gen_collision_free_s()
+    awg0_h1 = str(secrets.randbelow(1000000000) + 1000000000)
     awg0_h2 = str(secrets.randbelow(1000000000) + 1000000000)
     awg0_h3 = str(secrets.randbelow(1000000000) + 1000000000)
     awg0_h4 = str(secrets.randbelow(1000000000) + 1000000000)
@@ -367,7 +379,7 @@ awg1_kv = parse_ini_kv(awg1_conf)
 if "privatekey" in awg1_kv and len(awg1_kv["privatekey"]) >= 32:
     awg1_priv = awg1_kv["privatekey"]
     awg1_pub = derive_pubkey_from_priv(awg1_priv)
-    awg1_port = awg1_kv.get("listenport", "51821")
+    awg1_port = awg1_kv.get("listenport") or os.environ.get("AWG1_PORT") or get_free_udp_port()
     awg1_jc = awg1_kv.get("jc", "2")
     awg1_jmin = awg1_kv.get("jmin", "10")
     awg1_jmax = awg1_kv.get("jmax", "50")
@@ -375,22 +387,19 @@ if "privatekey" in awg1_kv and len(awg1_kv["privatekey"]) >= 32:
     awg1_s2 = awg1_kv.get("s2", "24")
     awg1_s3 = awg1_kv.get("s3", "66")
     awg1_s4 = awg1_kv.get("s4", "33")
-    awg1_h1 = awg1_kv.get("h1", "1181749209")
-    awg1_h2 = awg1_kv.get("h2", "1261551410")
-    awg1_h3 = awg1_kv.get("h3", "945272617")
-    awg1_h4 = awg1_kv.get("h4", "1069973896")
+    awg1_h1 = awg1_kv.get("h1") or str(secrets.randbelow(1000000000) + 1000000000)
+    awg1_h2 = awg1_kv.get("h2") or str(secrets.randbelow(1000000000) + 1000000000)
+    awg1_h3 = awg1_kv.get("h3") or str(secrets.randbelow(1000000000) + 1000000000)
+    awg1_h4 = awg1_kv.get("h4") or str(secrets.randbelow(1000000000) + 1000000000)
     awg1_hpk = awg1_kv.get("headerprotectionkey", base64.b64encode(secrets.token_bytes(32)).decode("ascii"))
     awg1_cpa = awg1_kv.get("contentpaddingaddition", "32-128")
 else:
     awg1_priv, awg1_pub = gen_x25519_keypair()
-    awg1_port = os.environ.get("AWG1_PORT", "51821")
+    awg1_port = os.environ.get("AWG1_PORT") or get_free_udp_port()
     awg1_jc = str(secrets.randbelow(7) + 2)          # 2..8
     awg1_jmin = str(secrets.randbelow(21) + 10)       # 10..30
     awg1_jmax = str(secrets.randbelow(51) + 40)       # 40..90
-    awg1_s1 = str(secrets.randbelow(181) + 20)        # 20..200
-    awg1_s2 = str(secrets.randbelow(181) + 20)
-    awg1_s3 = str(secrets.randbelow(181) + 20)
-    awg1_s4 = str(secrets.randbelow(181) + 20)
+    awg1_s1, awg1_s2, awg1_s3, awg1_s4 = gen_collision_free_s()
     awg1_h1 = str(secrets.randbelow(1000000000) + 1000000000)
     awg1_h2 = str(secrets.randbelow(1000000000) + 1000000000)
     awg1_h3 = str(secrets.randbelow(1000000000) + 1000000000)
@@ -627,22 +636,23 @@ netfilter-persistent save 2>/dev/null || true
 log_ok "Firewall rules activated and persisted."
 
 # 9. Deploy Wall Rose Python Backend
-INSTALL_DIR="/opt/wallrose"
-log_info "Installing Wall Rose backend to $INSTALL_DIR..."
-mkdir -p "$INSTALL_DIR"
-
-if [[ ! -d "backend" || ! -d "static" ]]; then
+if [[ -d "backend" && -d "static" ]]; then
+  INSTALL_DIR="${INSTALL_DIR:-$(pwd)}"
+  SOURCE_DIR="."
+else
+  INSTALL_DIR="${INSTALL_DIR:-$HOME/wallrose}"
   log_info "Fetching Wall Rose repository from GitHub (https://github.com/h1am7a/wall-rose)..."
   TMP_REPO=$(mktemp -d)
   git clone --depth 1 https://github.com/h1am7a/wall-rose.git "$TMP_REPO"
   SOURCE_DIR="$TMP_REPO"
-else
-  SOURCE_DIR="."
 fi
 
+log_info "Installing Wall Rose backend to $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR/backend/data"
-cp -r "$SOURCE_DIR/backend"/* "$INSTALL_DIR/backend/"
-cp -r "$SOURCE_DIR/static" "$INSTALL_DIR/"
+if [[ "$SOURCE_DIR" != "$INSTALL_DIR" ]]; then
+  cp -r "$SOURCE_DIR/backend"/* "$INSTALL_DIR/backend/"
+  cp -r "$SOURCE_DIR/static" "$INSTALL_DIR/"
+fi
 if [[ -n "${TMP_REPO:-}" && -d "${TMP_REPO:-}" ]]; then
   rm -rf "$TMP_REPO"
 fi
@@ -653,12 +663,28 @@ python3 -m venv "$INSTALL_DIR/venv"
 "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/backend/requirements.txt"
 
 # Admin Master Password & Session Secret Token
-if [ -z "${ADMIN_PASSWORD:-}" ]; then
-  ADMIN_PASS=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 16)
-else
-  ADMIN_PASS="$ADMIN_PASSWORD"
+EXISTING_ADMIN_PASS=""
+EXISTING_SECRET_KEY=""
+if [[ -f "$INSTALL_DIR/backend/.env" ]]; then
+  EXISTING_ADMIN_PASS=$(grep -E '^[[:space:]]*ADMIN_PASSWORD=' "$INSTALL_DIR/backend/.env" | cut -d'=' -f2- | tr -d ' "\r\n' || true)
+  EXISTING_SECRET_KEY=$(grep -E '^[[:space:]]*SECRET_KEY=' "$INSTALL_DIR/backend/.env" | cut -d'=' -f2- | tr -d ' "\r\n' || true)
 fi
-SECRET_TOKEN=$(openssl rand -hex 32)
+
+if [[ -n "${ADMIN_PASSWORD:-}" ]]; then
+  ADMIN_PASS="$ADMIN_PASSWORD"
+elif [[ -n "${EXISTING_ADMIN_PASS:-}" ]]; then
+  ADMIN_PASS="$EXISTING_ADMIN_PASS"
+else
+  ADMIN_PASS=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 16)
+fi
+
+if [[ -n "${SECRET_KEY:-}" ]]; then
+  SECRET_TOKEN="$SECRET_KEY"
+elif [[ -n "${EXISTING_SECRET_KEY:-}" ]]; then
+  SECRET_TOKEN="$EXISTING_SECRET_KEY"
+else
+  SECRET_TOKEN=$(openssl rand -hex 32)
+fi
 
 # Single Source of Truth: write exact synchronized variables to .env
 cat > "$INSTALL_DIR/backend/.env" << EOF
@@ -711,8 +737,10 @@ EOF
 chmod 600 "$INSTALL_DIR/backend/.env"
 
 # Save administrative credentials copy
-mkdir -p /root/.wallrose
-cat > /root/.wallrose/credentials.txt << EOF
+WALLROSE_CONF_DIR="${WALLROSE_CONF_DIR:-$HOME/.wallrose}"
+mkdir -p "$WALLROSE_CONF_DIR"
+CREDENTIALS_FILE="${WALLROSE_CONF_DIR}/credentials.txt"
+cat > "$CREDENTIALS_FILE" << EOF
 URL: http://${PUBLIC_IP}:${PANEL_PORT}/
 MASTER_PASSWORD: ${ADMIN_PASS}
 HYSTERIA_PORT: ${HY2_PORT}
@@ -720,7 +748,7 @@ HYSTERIA_GECKO_KEY: ${GECKO_OBFS_KEY}
 AWG0_PORT: ${AWG0_PORT}
 AWG1_PORT: ${AWG1_PORT}
 EOF
-chmod 600 /root/.wallrose/credentials.txt
+chmod 600 "$CREDENTIALS_FILE"
 
 # 10. Systemd Services Deployment & Startup
 log_info "Deploying systemd service units..."
@@ -779,11 +807,6 @@ echo -e "  ${CLR_YELLOW}Web Panel UI:${CLR_RESET}        http://${PUBLIC_IP}:${P
 echo -e "  ${CLR_YELLOW}Master Password:${CLR_RESET}     ${ADMIN_PASS}"
 echo -e "  ${CLR_CYAN}Auth Note:${CLR_RESET}           No username required (single master password entry)"
 echo -e "  ${CLR_YELLOW}OpenAPI Spec:${CLR_RESET}        http://${PUBLIC_IP}:${PANEL_PORT}/docs"
-echo -e "------------------------------------------------------------------------"
-echo -e "  ${CLR_CYAN}AmneziaWG 2.0:${CLR_RESET}        awg0 (UDP ${AWG0_PORT}, subnet 10.8.0.0/24, userspace)"
-echo -e "  ${CLR_CYAN}AmneziaWG 3.1:${CLR_RESET}        awg1 (UDP ${AWG1_PORT}, subnet 10.9.0.0/24, userspace v3)"
-echo -e "  ${CLR_CYAN}Hysteria 2.0:${CLR_RESET}         UDP ${HY2_PORT} (QUIC Gecko, single port)"
-echo -e "  ${CLR_CYAN}Gecko Obfs:${CLR_RESET}           ${GECKO_OBFS_KEY} (min: 512, max: 1200)"
-echo -e "  ${CLR_CYAN}Saved Creds:${CLR_RESET}          /root/.wallrose/credentials.txt (chmod 600)"
+echo -e "  ${CLR_CYAN}Saved Creds:${CLR_RESET}          ${CREDENTIALS_FILE} (chmod 600)"
 echo -e "${CLR_GREEN}========================================================================${CLR_RESET}"
 echo ""

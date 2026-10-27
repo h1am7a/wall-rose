@@ -203,48 +203,45 @@ proxies:
     client-fingerprint: chrome
     bbr-profile: bbr
     handshake-timeout: 5
+    keep-alive-period: 15
     alpn:
       - h3
 
 proxy-groups:
-  - name: "AUTO-FAILOVER"
-    type: fallback
-    disable-udp: false
-    url: "https://www.gstatic.com/generate_204"
-    interval: 60
-    timeout: 5
-    lazy: false
+  - name: "GLOBAL"
+    type: select
+    default-selected: "TRINITY"
     proxies:
+      - "TRINITY"
+      - "AUTO-FAILOVER"
       - "AWG1-v3"
       - "AWG0-v2"
       - "Hy2-gecko"
+      - "DIRECT"
 
   - name: "TRINITY"
     type: select
+    default-selected: "AUTO-FAILOVER"
     proxies:
       - "AUTO-FAILOVER"
       - "AWG1-v3"
       - "Hy2-gecko"
       - "AWG0-v2"
 
-rule-providers:
-  category-ru:
-    type: http
-    behavior: domain
-    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ru.yaml"
-    path: ./ruleset/category-ru.yaml
-    interval: 86400
-  geoip-ru:
-    type: http
-    behavior: ipcidr
-    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/ru.yaml"
-    path: ./ruleset/geoip-ru.yaml
-    interval: 86400
+  - name: "AUTO-FAILOVER"
+    type: fallback
+    disable-udp: false
+    url: "https://www.gstatic.com/generate_204"
+    interval: 30
+    timeout: 3000
+    max-failed-times: 2
+    lazy: false
+    proxies:
+      - "AWG1-v3"
+      - "AWG0-v2"
+      - "Hy2-gecko"
 
 rules:
-  - RULE-SET,category-ru,DIRECT
-  - DOMAIN-SUFFIX,gov.ru,DIRECT
-  - RULE-SET,geoip-ru,DIRECT
   - IP-CIDR,127.0.0.0/8,DIRECT,no-resolve
   - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
   - IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
@@ -422,7 +419,7 @@ def generate_mobile_landing_html(peer: Peer, subscription_url: str) -> str:
 </head>
 <body>
   <div class="card">
-    <div class="badge">TRINITY GATEWAY</div>
+    <div class="badge">WALL ROSE GATEWAY</div>
     <div class="title">{peer.name}</div>
     <div class="subtitle">{peer.device_desc}</div>
 

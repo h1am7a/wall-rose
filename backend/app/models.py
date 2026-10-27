@@ -77,3 +77,15 @@ class AuditLog(Base):
     action = Column(String(64), nullable=False)
     detail = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now)
+
+class TrafficBaseline(Base):
+    """Cumulative UAPI counter baselines for AWG interfaces to calculate deltas."""
+    __tablename__ = "traffic_baselines"
+
+    id = Column(Integer, primary_key=True, index=True)
+    interface = Column(String(32), nullable=False, index=True)
+    pubkey = Column(String(64), nullable=False, index=True)
+    last_rx = Column(BigInteger, default=0, nullable=False)
+    last_tx = Column(BigInteger, default=0, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+

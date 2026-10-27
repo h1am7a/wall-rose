@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI
@@ -10,6 +11,7 @@ from app.config import STATIC_DIR
 from app.database import init_db, AsyncSessionLocal
 from app.models import Peer
 from app.core_manager import auth_cache
+from app.traffic_aggregator import run_sync_loop
 
 # Routers
 from app.routers import auth, peers, cores, telemetry, subscription, webhook, backup
@@ -73,9 +75,17 @@ async def lifespan(app: FastAPI):
         for p in peers_list:
             auth_cache.set_user(p.hy2_user, p.hy2_pass, p.status)
 
+    # Spawn background traffic aggregator worker (30s interval)
+    aggregator_task = asyncio.create_task(run_sync_loop(interval=30))
+
     yield
 
     # Shutdown
+    aggregator_task.cancel()
+    try:
+        await aggregator_task
+    except asyncio.CancelledError:
+        pass
     auth_cache.clear()
 
 app = FastAPI(

@@ -198,7 +198,8 @@ def test_mihomo_yaml_structure():
     assert "proxies" in data
     assert "proxy-groups" in data
     assert "rules" in data
-    assert "rule-providers" in data
+    # Rule providers removed per all-traffic-via-vpn standard (no RU split-routing)
+    assert "rule-providers" not in data
 
     # Verify proxies
     proxy_names = [p["name"] for p in data["proxies"]]
@@ -214,21 +215,41 @@ def test_mihomo_yaml_structure():
     assert awg31["amnezia-wg-option"]["jc"] == 2
     assert awg31["amnezia-wg-option"]["s1"] == 99
 
-    # Verify Fallback failover configuration
-    failover_group = next(g for g in data["proxy-groups"] if g["name"] == "AUTO-FAILOVER")
-    assert failover_group["type"] == "fallback"
-    assert failover_group["lazy"] is False
-    assert failover_group["proxies"] == ["AWG1-v3", "AWG0-v2", "Hy2-gecko"]
+    # Verify GLOBAL group
+    global_group = next(g for g in data["proxy-groups"] if g["name"] == "GLOBAL")
+    assert global_group["type"] == "select"
+    assert global_group["default-selected"] == "TRINITY"
 
     # Verify TRINITY group
     trinity_group = next(g for g in data["proxy-groups"] if g["name"] == "TRINITY")
     assert trinity_group["type"] == "select"
+    assert trinity_group["default-selected"] == "AUTO-FAILOVER"
 
-    # Verify rule ordering and matching
+    # Verify Fallback failover configuration (interval 30s, timeout 3000ms, max-failed-times 2, lazy false)
+    failover_group = next(g for g in data["proxy-groups"] if g["name"] == "AUTO-FAILOVER")
+    assert failover_group["type"] == "fallback"
+    assert failover_group["lazy"] is False
+    assert failover_group["interval"] == 30
+    assert failover_group["timeout"] == 3000
+    assert failover_group["max-failed-times"] == 2
+    assert failover_group["url"] == "https://www.gstatic.com/generate_204"
+    assert failover_group["proxies"] == ["AWG1-v3", "AWG0-v2", "Hy2-gecko"]
+
+    # Verify Hy2 proxy keep-alive-period
+    hy2 = next(p for p in data["proxies"] if p["name"] == "Hy2-gecko")
+    assert hy2["keep-alive-period"] == 15
+
+    # Verify rule ordering: only local anti-loop CIDRs + final MATCH,TRINITY
     rules = data["rules"]
-    assert any("category-ru" in r and "DIRECT" in r for r in rules)
-    assert any("gov.ru" in r and "DIRECT" in r for r in rules)
-    assert any("geoip-ru" in r and "DIRECT" in r for r in rules)
+    assert "IP-CIDR,127.0.0.0/8,DIRECT,no-resolve" in rules
+    assert "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve" in rules
+    assert "IP-CIDR,172.16.0.0/12,DIRECT,no-resolve" in rules
+    assert "IP-CIDR,192.168.0.0/16,DIRECT,no-resolve" in rules
+    assert "IP-CIDR,169.254.0.0/16,DIRECT,no-resolve" in rules
+    assert "IP-CIDR,198.18.0.0/15,DIRECT,no-resolve" in rules
+    assert not any("category-ru" in r for r in rules)
+    assert not any("gov.ru" in r for r in rules)
+    assert not any("geoip-ru" in r for r in rules)
     assert rules[-1] == "MATCH,TRINITY"
 
 def test_singbox_json_structure():
@@ -246,8 +267,107 @@ def test_awg_conf_structure():
     assert "[Interface]" in conf2
     assert "[Peer]" in conf2
     assert "Address = 10.8.0.10/32" in conf2
-    assert "203.0.113.1:51820" in conf2
+    assert "Endpoint = 203.0.113.1:" in conf2
 
     conf3 = generate_awg_client_conf(peer, version="3.1", server_ip="203.0.113.1")
     assert "Address = 10.9.0.10/32" in conf3
-    assert "203.0.113.1:51821" in conf3
+    assert "Endpoint = 203.0.113.1:" in conf3
+
+@pytest.mark.asyncio
+async def test_traffic_aggregator_delta_and_baseline(monkeypatch):
+    from unittest.mock import MagicMock
+    from app.database import AsyncSessionLocal, init_db
+    from app.traffic_aggregator import aggregate_traffic_once
+    from app.models import Peer, TrafficBaseline
+    from sqlalchemy import select, delete
+
+    await init_db()
+
+    async with AsyncSessionLocal() as session:
+        # Clean test peers
+        await session.execute(delete(TrafficBaseline).where(TrafficBaseline.interface == "awg1"))
+        await session.execute(delete(Peer).where(Peer.name == "AGG_TEST_PEER"))
+        
+        test_peer = Peer(
+            name="AGG_TEST_PEER",
+            device_desc="Tester",
+            token="agg_token_123",
+            awg0_ip="10.8.0.222",
+            awg0_privkey="priv0",
+            awg0_pubkey="agg_pub_0",
+            awg0_psk="psk0",
+            awg1_ip="10.9.0.222",
+            awg1_privkey="priv1",
+            awg1_pubkey="agg_pub_1",
+            awg1_psk="psk1",
+            hy2_user="agg_user_1",
+            hy2_pass="agg_pass_1",
+            status="ACTIVE",
+            transfer_rx=0,
+            transfer_tx=0,
+            last_handshake=0
+        )
+        session.add(test_peer)
+        await session.commit()
+
+        try:
+            # 1. Pass 1: Initial encounter sets baseline without incrementing transfer
+            fake_metrics = {
+                "agg_pub_1": {
+                    "transfer_rx": 1000,
+                    "transfer_tx": 500,
+                    "latest_handshake": 1700000001
+                }
+            }
+            monkeypatch.setattr("app.traffic_aggregator.fetch_awg_interface_metrics", lambda iface: fake_metrics if iface == "awg1" else {})
+            
+            # Mock httpx response to avoid waiting for local 9999 socket
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = {}
+            async def _fake_get(self, url):
+                return mock_resp
+            monkeypatch.setattr("httpx.AsyncClient.get", _fake_get)
+
+            await aggregate_traffic_once(session)
+
+            p = (await session.execute(select(Peer).where(Peer.name == "AGG_TEST_PEER"))).scalar_one()
+            assert p.transfer_rx == 0
+            assert p.transfer_tx == 0
+            assert p.last_handshake == 1700000001
+
+            b = (await session.execute(select(TrafficBaseline).where(TrafficBaseline.pubkey == "agg_pub_1"))).scalar_one()
+            assert b.last_rx == 1000
+            assert b.last_tx == 500
+
+            # 2. Pass 2: Monotonic growth (+600 rx, +200 tx)
+            fake_metrics["agg_pub_1"] = {
+                "transfer_rx": 1600,
+                "transfer_tx": 700,
+                "latest_handshake": 1700000010
+            }
+            await aggregate_traffic_once(session)
+
+            await session.refresh(p)
+            assert p.transfer_rx == 600
+            assert p.transfer_tx == 200
+            assert p.last_handshake == 1700000010
+
+            # 3. Pass 3: Daemon restart / counter reset (curr < baseline)
+            fake_metrics["agg_pub_1"] = {
+                "transfer_rx": 300,
+                "transfer_tx": 150,
+                "latest_handshake": 1700000020
+            }
+            await aggregate_traffic_once(session)
+
+            await session.refresh(p)
+            assert p.transfer_rx == 900  # 600 + 300
+            assert p.transfer_tx == 350  # 200 + 150
+            assert p.last_handshake == 1700000020
+
+        finally:
+            await session.execute(delete(TrafficBaseline).where(TrafficBaseline.pubkey == "agg_pub_1"))
+            await session.execute(delete(Peer).where(Peer.name == "AGG_TEST_PEER"))
+            await session.commit()
+

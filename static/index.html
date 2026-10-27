@@ -1169,7 +1169,7 @@
         <div class="manga-logo-stamp">ロ</div>
         <div class="brand-text">
           <h1>ウォール・ローゼ <span class="manga-ver-badge">v1.0.0</span></h1>
-          <p class="brand-sub">HOST • <span id="brandHost">127.0.0.1</span></p>
+          <p class="brand-sub"><span id="brandHost">127.0.0.1:8000</span></p>
         </div>
       </div>
 
@@ -1221,9 +1221,10 @@
         <div class="cell-title">CPU LOAD</div>
         <div class="cell-main">
           <div class="cell-stat">
-            <span class="cell-num" id="telemetryCpuNum">0%</span>
+            <span class="cell-num" id="telemetryCpuNum">0.0%</span>
+            <span class="cell-unit" id="telemetryCpuUnit">Load</span>
           </div>
-          <span class="cell-badge badge-green" id="telemetryCpuBadge">NORMAL LOAD</span>
+          <span class="cell-badge badge-green" id="telemetryCpuBadge">LOW</span>
         </div>
       </div>
 
@@ -1232,10 +1233,10 @@
         <div class="cell-title">RAM USAGE</div>
         <div class="cell-main">
           <div class="cell-stat">
-            <span class="cell-num" id="telemetryRamNum">0 MB</span>
-            <span class="cell-unit" id="telemetryRamUnit">/ 0 GB</span>
+            <span class="cell-num" id="telemetryRamNum">0.0%</span>
+            <span class="cell-unit" id="telemetryRamUnit">Used</span>
           </div>
-          <span class="cell-badge badge-green" id="telemetryRamBadge">0% USED</span>
+          <span class="cell-badge badge-green" id="telemetryRamBadge">0 MB / 0 GB</span>
         </div>
       </div>
 
@@ -1245,19 +1246,18 @@
         <div class="cell-main">
           <div class="cell-stat">
             <span class="cell-num" id="telemetrySpeedNum">0.0</span>
-            <span class="cell-unit" id="telemetrySpeedUnit">B/s</span>
+            <span class="cell-unit" id="telemetrySpeedUnit">B/s Total</span>
           </div>
-          <span class="cell-badge badge-green">
+          <span class="cell-badge badge-green" id="telemetrySpeedBadge">
             <span class="speed-flow">
               <svg class="telemetry-arrow" viewBox="0 0 16 16"><polygon points="8,2 1,14 15,14"/></svg>
-              <span id="telemetrySpeedUp">0 B/s</span>
+              <span id="telemetrySpeedUp">0.0 B/s</span>
             </span>
             <span class="badge-dot">•</span>
             <span class="speed-flow">
               <svg class="telemetry-arrow" viewBox="0 0 16 16"><polygon points="8,14 1,2 15,2"/></svg>
-              <span id="telemetrySpeedDown">0 B/s</span>
+              <span id="telemetrySpeedDown">0.0 B/s</span>
             </span>
-            <span class="badge-unit">RATE</span>
           </span>
         </div>
       </div>
@@ -1331,7 +1331,7 @@
             <div class="blueprint-header">
               <div>
                 <h3>AmneziaWG 2.0</h3>
-                <span class="blueprint-sub">Interface awg0 • UDP 51820</span>
+                <span class="blueprint-sub">Interface awg0 • Userspace UDP</span>
               </div>
               <div class="speech-badge st-online" id="status-badge-awg0">ONLINE</div>
             </div>
@@ -1362,7 +1362,7 @@
             <div class="blueprint-header">
               <div>
                 <h3>AmneziaWG 3.1</h3>
-                <span class="blueprint-sub">Interface awg1 • UDP 51821</span>
+                <span class="blueprint-sub">Interface awg1 • Userspace v3 UDP</span>
               </div>
               <div class="speech-badge st-online" id="status-badge-awg1">ONLINE</div>
             </div>
@@ -1455,8 +1455,8 @@
           <div class="flow-step">
             <div class="flow-num">3</div>
             <div class="flow-body">
-              <h4>Domestic Direct Bypass</h4>
-              <p>Rules <code>category-ru</code> and <code>GEOIP,RU,DIRECT</code> keep Russian banking (Sber, T-Bank), Gosuslugi, and local marketplaces on direct home ISP without foreign IP lockouts.</p>
+              <h4>Full Tunnel & Anti-Loop</h4>
+              <p>Full tunnel routes all traffic via VPN mesh (<code>MATCH,TRINITY</code>) while local loopback and LAN subnets stay <code>DIRECT</code> to prevent client TUN routing loops.</p>
             </div>
           </div>
         </div>
@@ -1473,129 +1473,115 @@
 
           <div class="yaml-preview-box" id="yamlSnippet"># Mihomo Dynamic Client Subscription (/sub/{token})
 mixed-port: 7890
-allow-lan: false
+tcp-concurrent: true
 mode: rule
 log-level: info
+ipv6: false
+keep-alive-interval: 30
+unified-delay: false
+
+profile:
+  store-selected: true
+  store-fake-ip: true
+
+tun:
+  enable: true
+  stack: mixed
+  auto-route: true
+  auto-detect-interface: true
+  dns-hijack:
+    - any:53
+  strict-route: true
+  mtu: 1500
+
+dns:
+  enable: true
+  prefer-h3: true
+  use-hosts: true
+  use-system-hosts: true
+  listen: 127.0.0.1:6868
+  ipv6: false
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  default-nameserver:
+    - 1.1.1.1
+    - 1.0.0.1
+  proxy-server-nameserver:
+    - 1.1.1.1
+    - 1.0.0.1
+  direct-nameserver:
+    - 1.1.1.1
+    - 1.0.0.1
+  nameserver:
+    - 1.1.1.1
+    - 1.0.0.1
 
 proxies:
-  # 1. AWG 3.1 Primary (ChaCha20 Header Protection)
-  - name: "AWG-3.1"
+  - name: "AWG1-v3"
     type: wireguard
     server: 203.0.113.1
-    port: 51821
+    port: 50001
     ip: 10.9.0.2
-    public-key: "dddddd_AWG31_ServerKey_DDDDDD="
-    private-key: "cccccc_ClientPrivateKey_CCCCCC="
-    amnezia-jc: 5
-    amnezia-jmin: 50
-    amnezia-jmax: 80
-    amnezia-s1: 16
-    amnezia-s2: 32
-    amnezia-h1: 5
-    amnezia-h2: 6
-    amnezia-h3: 7
-    amnezia-h4: 8
-
-  # 2. AWG 2.0 Secondary (Fixed UDP Socket)
-  - name: "AWG-2.0"
+    amnezia-wg-option:
+      version: 3
+      jc: 3
+      header-protection-key: "..."
+  - name: "AWG0-v2"
     type: wireguard
     server: 203.0.113.1
-    port: 51820
+    port: 50000
     ip: 10.8.0.2
-    public-key: "bbbbbb_AWG20_ServerKey_BBBBBB="
-    private-key: "aaaaaa_ClientPrivateKey_AAAAAA="
-    amnezia-jc: 4
-    amnezia-jmin: 40
-    amnezia-jmax: 70
-    amnezia-s1: 28
-    amnezia-s2: 64
-    amnezia-h1: 1
-    amnezia-h2: 2
-    amnezia-h3: 3
-    amnezia-h4: 4
-
-  # 3. Hysteria 2 Disaster Recovery (Gecko + Port Hopping)
-  - name: "Hy2-Gecko"
+    amnezia-wg-option:
+      version: 2
+      jc: 7
+  - name: "Hy2-gecko"
     type: hysteria2
     server: 203.0.113.1
-    ports: 20000-50000
-    password: "tok_client_password_secret"
+    port: 443
     obfs: gecko
-    obfs-password: "obfs_secret_pass"
-    skip-cert-verify: true
 
 proxy-groups:
+  - name: "GLOBAL"
+    type: select
+    default-selected: "TRINITY"
+    proxies:
+      - "TRINITY"
+      - "AUTO-FAILOVER"
+      - "AWG1-v3"
+      - "AWG0-v2"
+      - "Hy2-gecko"
+      - "DIRECT"
+
+  - name: "TRINITY"
+    type: select
+    default-selected: "AUTO-FAILOVER"
+    proxies:
+      - "AUTO-FAILOVER"
+      - "AWG1-v3"
+      - "Hy2-gecko"
+      - "AWG0-v2"
+
   - name: "AUTO-FAILOVER"
     type: fallback
+    disable-udp: false
     url: "https://www.gstatic.com/generate_204"
-    interval: 300
-    lazy: true
+    interval: 30
+    timeout: 3000
+    max-failed-times: 2
+    lazy: false
     proxies:
-      - "AWG-3.1"
-      - "AWG-2.0"
-      - "Hy2-Gecko"
-
-rule-providers:
-  youtube:
-    type: http
-    behavior: domain
-    format: mrs
-    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/youtube.mrs"
-    path: ./rules/youtube.mrs
-    interval: 86400
-
-  discord:
-    type: http
-    behavior: domain
-    format: mrs
-    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/discord.mrs"
-    path: ./rules/discord.mrs
-    interval: 86400
-
-  telegram:
-    type: http
-    behavior: domain
-    format: mrs
-    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/telegram.mrs"
-    path: ./rules/telegram.mrs
-    interval: 86400
-
-  antifilter:
-    type: http
-    behavior: domain
-    format: mrs
-    url: "https://raw.githubusercontent.com/legiz-ru/mihomo-rule-sets/main/ru-bundle/antifilter-community.mrs"
-    path: ./rules/antifilter.mrs
-    interval: 86400
-
-  category-ru:
-    type: http
-    behavior: domain
-    format: mrs
-    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ru.mrs"
-    path: ./rules/category-ru.mrs
-    interval: 86400
-
-  geoip-ru:
-    type: http
-    behavior: ipcidr
-    format: mrs
-    url: "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/ru.mrs"
-    path: ./rules/geoip-ru.mrs
-    interval: 86400
+      - "AWG1-v3"
+      - "AWG0-v2"
+      - "Hy2-gecko"
 
 rules:
-  - GEOIP,private,DIRECT,no-resolve
-  - RULE-SET,youtube,AUTO-FAILOVER
-  - RULE-SET,discord,AUTO-FAILOVER
-  - RULE-SET,telegram,AUTO-FAILOVER
-  - GEOIP,telegram,AUTO-FAILOVER,no-resolve
-  - RULE-SET,antifilter,AUTO-FAILOVER
-  - RULE-SET,category-ru,DIRECT
-  - DOMAIN-SUFFIX,ru,DIRECT
-  - DOMAIN-SUFFIX,рф,DIRECT
-  - RULE-SET,geoip-ru,DIRECT
-  - MATCH,AUTO-FAILOVER</div>
+  - IP-CIDR,127.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
+  - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
+  - IP-CIDR,169.254.0.0/16,DIRECT,no-resolve
+  - IP-CIDR,198.18.0.0/15,DIRECT,no-resolve
+  - MATCH,TRINITY</div>
 
           <div style="margin-top: 14px; display: flex; justify-content: flex-end;">
             <button class="comic-btn comic-btn-red" onclick="openYamlPreview()">
@@ -2121,43 +2107,75 @@ rules:
 
         // Cell 2: CPU Load
         const cpuNum = document.getElementById('telemetryCpuNum');
+        const cpuUnit = document.getElementById('telemetryCpuUnit');
         const cpuBadge = document.getElementById('telemetryCpuBadge');
-        if (cpuNum) cpuNum.textContent = `${data.cpu_percent}%`;
-        if (cpuBadge) cpuBadge.textContent = `${data.cpu_cores} CORES LOAD`;
+        const cpuVal = Number(data.cpu_percent) || 0;
+        if (cpuNum) cpuNum.textContent = `${cpuVal.toFixed(1)}%`;
+        if (cpuUnit) cpuUnit.textContent = 'Load';
+        if (cpuBadge) {
+          if (cpuVal > 80) {
+            cpuBadge.textContent = 'HIGH';
+            cpuBadge.className = 'cell-badge badge-red';
+          } else if (cpuVal >= 40) {
+            cpuBadge.textContent = 'NORMAL';
+            cpuBadge.className = 'cell-badge badge-green';
+          } else {
+            cpuBadge.textContent = 'LOW';
+            cpuBadge.className = 'cell-badge badge-green';
+          }
+        }
 
         // Cell 3: RAM Usage
         const ramNum = document.getElementById('telemetryRamNum');
         const ramUnit = document.getElementById('telemetryRamUnit');
         const ramBadge = document.getElementById('telemetryRamBadge');
-        if (ramNum) ramNum.textContent = data.ram_used_formatted;
-        if (ramUnit) ramUnit.textContent = `/ ${data.ram_total_formatted}`;
-        if (ramBadge) ramBadge.textContent = `${data.ram_percent}% USED`;
+        const ramPercentVal = Number(data.ram_percent) || 0;
+        if (ramNum) ramNum.textContent = `${ramPercentVal.toFixed(1)}%`;
+        if (ramUnit) ramUnit.textContent = 'Used';
 
-        // Cell 4: Network Speed (Peak Duplex Capacity = max(RX, TX))
+        if (ramBadge) {
+          function formatRam(bytes) {
+            const gb = bytes / (1024 * 1024 * 1024);
+            if (gb >= 1.0) {
+              return `${gb.toFixed(1)} GB`;
+            }
+            const mb = Math.round(bytes / (1024 * 1024));
+            return `${mb} MB`;
+          }
+          const usedStr = formatRam(data.ram_used_bytes || 0);
+          const totalStr = formatRam(data.ram_total_bytes || 0);
+          ramBadge.textContent = `${usedStr} / ${totalStr}`;
+          ramBadge.className = 'cell-badge badge-green';
+        }
+
+        // Cell 4: Network Speed (Total Throughput = Up + Down)
         const downBytes = data.net_speed_down_bytes || 0;
         const upBytes = data.net_speed_up_bytes || 0;
-        const peakBytes = Math.max(downBytes, upBytes);
+        const totalBytes = downBytes + upBytes;
 
         function formatSpeedRate(bytes) {
-          if (bytes < 1024) return { num: bytes.toString(), unit: 'B/s' };
+          if (bytes < 1024) return { num: (bytes).toFixed(1), unit: 'B/s' };
           const kb = bytes / 1024;
           if (kb < 1024) return { num: kb.toFixed(1), unit: 'KB/s' };
           const mb = kb / 1024;
           if (mb < 1024) return { num: mb.toFixed(1), unit: 'MB/s' };
           const gb = mb / 1024;
-          return { num: gb.toFixed(2), unit: 'GB/s' };
+          return { num: gb.toFixed(1), unit: 'GB/s' };
         }
 
-        const peakFormatted = formatSpeedRate(peakBytes);
+        const totalFormatted = formatSpeedRate(totalBytes);
+        const upFormatted = formatSpeedRate(upBytes);
+        const downFormatted = formatSpeedRate(downBytes);
+
         const speedNum = document.getElementById('telemetrySpeedNum');
         const speedUnit = document.getElementById('telemetrySpeedUnit');
         const speedUp = document.getElementById('telemetrySpeedUp');
         const speedDown = document.getElementById('telemetrySpeedDown');
 
-        if (speedNum) speedNum.textContent = peakFormatted.num;
-        if (speedUnit) speedUnit.textContent = peakFormatted.unit;
-        if (speedUp) speedUp.textContent = data.net_speed_up_formatted;
-        if (speedDown) speedDown.textContent = data.net_speed_down_formatted;
+        if (speedNum) speedNum.textContent = totalFormatted.num;
+        if (speedUnit) speedUnit.textContent = `${totalFormatted.unit} Total`;
+        if (speedUp) speedUp.textContent = `${upFormatted.num} ${upFormatted.unit}`;
+        if (speedDown) speedDown.textContent = `${downFormatted.num} ${downFormatted.unit}`;
         return true;
       } catch (err) {
         console.warn('Telemetry poll skipped:', err);
@@ -2266,7 +2284,7 @@ rules:
                 </div>
 
                 <div class="card-footer-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1.5px dashed var(--ink-border-soft);">
-                  <button class="comic-btn" style="padding: 4px 10px; font-size: 0.68rem;" onclick="togglePeerStatus(${peer.id}, '${peer.status}')">
+                  <button class="comic-btn ${isSuspended ? 'comic-btn-yellow' : 'comic-btn-red'}" style="padding: 4px 10px; font-size: 0.68rem;" onclick="togglePeerStatus(${peer.id}, '${peer.status}')">
                     ${isSuspended ? 'Resume Node' : 'Suspend'}
                   </button>
                   <button class="comic-btn comic-btn-red icon-only" style="padding: 4px 8px;" onclick="deletePeerNode(${peer.id}, '${escapeHtml(peer.name)}')" title="Revoke & Delete Device">
@@ -2601,14 +2619,14 @@ rules:
 
       checkAuthAndInit();
 
-      // Poll telemetry and peers periodically only when authenticated
+      // Poll telemetry and peers periodically only when authenticated (every 2.5 seconds)
       setInterval(() => {
         const authModal = document.getElementById('authModal');
         if (authModal && !authModal.classList.contains('open')) {
           loadTelemetry();
           loadPeers();
         }
-      }, 10000);
+      }, 2500);
     });
 
     window.onclick = function(e) {

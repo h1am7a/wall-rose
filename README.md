@@ -43,8 +43,8 @@ flowchart TD
         end
 
         subgraph Daemons ["Protocol Daemons"]
-            AWG31["AmneziaWG 3.1 (awg1-go)<br>v3 Headers | UDP 51821"]
-            AWG20["AmneziaWG 2.0 (awg0-go)<br>v2 Obfuscation | UDP 51820"]
+            AWG31["AmneziaWG 3.1 (awg1-go)<br>v3 Headers | Dynamic UDP"]
+            AWG20["AmneziaWG 2.0 (awg0-go)<br>v2 Obfuscation | Dynamic UDP"]
             HY2["Hysteria 2.0 (hy2)<br>Gecko QUIC | Port 443"]
         end
 
@@ -81,7 +81,7 @@ The installer automatically configures:
 - Hysteria 2.0 daemon on single UDP port 443 and RSA-2048 self-signed certificates.
 - Local Unbound DNS-over-TLS resolver on `10.8.0.1:53` and `10.9.0.1:53`.
 - `iptables` NAT masquerading and MSS clamping.
-- 16-character CSPRNG master password stored in `/opt/wallrose/backend/.env` (`chmod 600`).
+- 16-character CSPRNG master password stored in `<INSTALL_DIR>/backend/.env` (`chmod 600`).
 - Systemd service units (`awg0-go.service`, `awg1-go.service`, `wallrose-panel.service`, `hysteria-server.service`).
 
 ---
@@ -93,7 +93,7 @@ The installer automatically configures:
 2. In the client, add subscription via URL: `http://<SERVER_IP>:8000/sub/<TOKEN>`
 3. Set update interval to 24 hours.
 
-Configurations follow the Trinity split-routing standard with `AUTO-FAILOVER` (fallback interval 60s, timeout 5s, active probe) and `TRINITY` (manual selector), routing Russian domestic services directly (`category-ru`, `gov.ru`, `geoip-ru`) and all blocked/international traffic through the VPN mesh.
+Configurations follow the Trinity full-tunnel standard with `AUTO-FAILOVER` (fallback interval 30s, timeout 3000ms, max-failed-times 2, active probe: `https://www.gstatic.com/generate_204`), `TRINITY` (selector default-selected: `AUTO-FAILOVER`), and `GLOBAL` (selector default-selected: `TRINITY`). All traffic routes through the VPN mesh with local loopback and LAN subnets preserved as `DIRECT` to protect against client TUN routing loops.
 
 ### Sing-box (iOS, Android, macOS, Linux)
 1. Click **Sing-box** on the device card.

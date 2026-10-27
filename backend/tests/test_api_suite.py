@@ -134,6 +134,11 @@ async def test_peer_and_subscription_flow():
         assert res_resume.status_code == 200
         assert res_resume.json()["status"] == "ACTIVE"
 
+        # Test /api/v1/hysteria/sync-traffic call-through to unified aggregator
+        res_sync = await client.post("/api/v1/hysteria/sync-traffic")
+        assert res_sync.status_code == 200
+        assert res_sync.json()["ok"] is True
+
         # 6. Delete peer
         res_del = await client.delete(f"/api/peers/{peer_id}")
         assert res_del.status_code == 200
@@ -165,7 +170,7 @@ async def test_cores_and_config_editor():
         # 3. Update config
         res_upd = await client.put(
             "/api/cores/awg1/config",
-            json={"config_text": "# Updated test config content\n[Interface]\nListenPort = 51821\n"}
+            json={"config_text": "# Updated test config content\n[Interface]\nListenPort = 48123\n"}
         )
         assert res_upd.status_code == 200
         assert res_upd.json()["ok"] is True
