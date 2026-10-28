@@ -111,20 +111,6 @@ async def get_subscription(
 
     user_agent = request.headers.get("user-agent", "").lower()
 
-    # Auto-detect and record client device description if unset or placeholder
-    placeholder_descriptions = [
-        "Waiting for connection...",
-        "Pending connection...",
-        "Waiting for client...",
-        "Auto-detecting...",
-        "Mobile / Desktop Device",
-        "Mobile Device",
-    ]
-    if not peer.device_desc or peer.device_desc in placeholder_descriptions:
-        detected = parse_device_info(user_agent)
-        peer.device_desc = detected
-        await db.commit()
-
     base_url = str(request.base_url).rstrip("/")
     sub_url = f"{base_url}/sub/{peer.token}"
 

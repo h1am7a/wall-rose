@@ -79,8 +79,13 @@ apt-get install -y --no-install-recommends \
 
 if [[ "$OS_ID" == "ubuntu" ]]; then
   # Official Launchpad PPA native to Ubuntu for awg CLI tools
-  add-apt-repository -y ppa:amnezia/ppa || true
-  apt-get update -y
+  if ! grep -rqE "(ppa\.launchpadcontent\.net/amnezia|ppa:amnezia/ppa)" /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null; then
+    log_info "Registering Amnezia PPA repository..."
+    add-apt-repository -y ppa:amnezia/ppa || true
+    apt-get update -y || true
+  else
+    log_info "Amnezia PPA repository already registered, skipping duplicate add."
+  fi
   apt-get install -y amneziawg-tools wireguard-tools || true
 else
   apt-get install -y wireguard-tools || true
@@ -569,16 +574,18 @@ log_info "Configuring iptables NAT and MSS Clamping..."
 iptables -t nat -D PREROUTING -i "$WAN_IF" -p udp --dport 20000:50000 -j REDIRECT --to-ports 4433 2>/dev/null || true
 iptables -t nat -D PREROUTING -p udp --dport 20000:50000 -j REDIRECT --to-ports 4433 2>/dev/null || true
 
-# Enable NAT Masquerade for VPN Subnets
-iptables -t nat -C POSTROUTING -s 10.8.0.0/24 -o "$WAN_IF" -j MASQUERADE 2>/dev/null || \
-  iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o "$WAN_IF" -j MASQUERADE
+# Enable NAT Masquerade for VPN Subnets (purge duplicate entries first for true idempotency)
+while iptables -t nat -D POSTROUTING -s 10.8.0.0/24 -o "$WAN_IF" -j MASQUERADE 2>/dev/null; do :; done
+while iptables -t nat -D POSTROUTING -s 10.8.0.0/24 -j MASQUERADE 2>/dev/null; do :; done
+iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o "$WAN_IF" -j MASQUERADE
 
-iptables -t nat -C POSTROUTING -s 10.9.0.0/24 -o "$WAN_IF" -j MASQUERADE 2>/dev/null || \
-  iptables -t nat -A POSTROUTING -s 10.9.0.0/24 -o "$WAN_IF" -j MASQUERADE
+while iptables -t nat -D POSTROUTING -s 10.9.0.0/24 -o "$WAN_IF" -j MASQUERADE 2>/dev/null; do :; done
+while iptables -t nat -D POSTROUTING -s 10.9.0.0/24 -j MASQUERADE 2>/dev/null; do :; done
+iptables -t nat -A POSTROUTING -s 10.9.0.0/24 -o "$WAN_IF" -j MASQUERADE
 
 # TCP MSS Clamping to prevent packet fragmentation on mobile links
-iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || \
-  iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+while iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null; do :; done
+iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 
 # Allow incoming protocol ports
 iptables -C INPUT -p udp --dport "$AWG0_PORT" -j ACCEPT 2>/dev/null || iptables -A INPUT -p udp --dport "$AWG0_PORT" -j ACCEPT 2>/dev/null || true
@@ -616,26 +623,15 @@ python3 -m venv "$INSTALL_DIR/venv"
 "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
 "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/backend/requirements.txt"
 
-# Admin Master Password & Session Secret Token
-EXISTING_ADMIN_PASS=""
-EXISTING_SECRET_KEY=""
-if [[ -f "$INSTALL_DIR/backend/.env" ]]; then
-  EXISTING_ADMIN_PASS=$(grep -E '^[[:space:]]*ADMIN_PASSWORD=' "$INSTALL_DIR/backend/.env" | cut -d'=' -f2- | tr -d ' "\r\n' || true)
-  EXISTING_SECRET_KEY=$(grep -E '^[[:space:]]*SECRET_KEY=' "$INSTALL_DIR/backend/.env" | cut -d'=' -f2- | tr -d ' "\r\n' || true)
-fi
-
+# Admin Master Password & Session Secret Token (fresh generation on each install)
 if [[ -n "${ADMIN_PASSWORD:-}" ]]; then
   ADMIN_PASS="$ADMIN_PASSWORD"
-elif [[ -n "${EXISTING_ADMIN_PASS:-}" ]]; then
-  ADMIN_PASS="$EXISTING_ADMIN_PASS"
 else
   ADMIN_PASS=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 16)
 fi
 
 if [[ -n "${SECRET_KEY:-}" ]]; then
   SECRET_TOKEN="$SECRET_KEY"
-elif [[ -n "${EXISTING_SECRET_KEY:-}" ]]; then
-  SECRET_TOKEN="$EXISTING_SECRET_KEY"
 else
   SECRET_TOKEN=$(openssl rand -hex 32)
 fi

@@ -1669,7 +1669,7 @@ rules:
           <div>
             <label style="font-family: var(--font-display); font-size: 0.75rem; text-transform: uppercase; display: block; margin-bottom: 6px;">Device / User Name <span style="color: var(--accent-red);">*</span></label>
             <input type="text" id="newPeerName" placeholder="e.g. Alex Phone, Work Mac, Home Router" style="width: 100%; box-sizing: border-box; padding: 10px 12px; font-family: var(--font-ui); font-size: 0.9rem; font-weight: 700; border: 2.5px solid var(--ink-border); border-radius: 6px; background: var(--bg-canvas); color: var(--text-main);">
-            <p style="font-family: var(--font-ui); font-size: 0.70rem; color: var(--text-muted); line-height: 1.4; margin-top: 6px;">Operating system and client app (Mihomo, Clash Verge, Sing-box, Flclash) are automatically detected and saved upon first connection.</p>
+            <p style="font-family: var(--font-ui); font-size: 0.70rem; color: var(--text-muted); line-height: 1.4; margin-top: 6px;">Universal multi-protocol client token with auto-failover across AmneziaWG and Hysteria 2.</p>
           </div>
           <div>
             <label style="font-family: var(--font-display); font-size: 0.70rem; text-transform: uppercase; display: block; margin-bottom: 6px; color: var(--text-muted);">Active Mesh Cores Provisioned</label>
@@ -2278,7 +2278,6 @@ rules:
                 <div class="panel-top-bar">
                   <div class="panel-meta">
                     <h2 class="panel-title">${escapeHtml(peer.name)}</h2>
-                    <span class="panel-device-desc">${escapeHtml(peer.device_desc)}</span>
                   </div>
                   <div class="speech-badge ${statusClass}">${statusBadge}</div>
                 </div>
@@ -2407,7 +2406,7 @@ rules:
         const res = await fetch('/api/peers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: name, device_desc: 'Waiting for connection...' })
+          body: JSON.stringify({ name: name, device_desc: '' })
         });
 
         if (res.ok) {
