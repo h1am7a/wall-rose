@@ -77,11 +77,12 @@ class PeerResponse(BaseModel):
     last_handshake: int = Field(..., description="Unix timestamp of latest handshake", examples=[1729291200])
     last_handshake_relative: str = Field(..., description="Humanized relative elapsed time", examples=["14s ago"])
     
+    token: str = Field(..., description="Unique subscription token", examples=["9f8b4a2e..."])
     subscription_url: str = Field(..., description="Full URL to user subscription endpoint", examples=["http://vps:8000/sub/9f8b4a2e..."])
 
 class PeerDetailResponse(PeerResponse):
     """Comprehensive technical peer details including cryptographic keys and raw credentials."""
-    token: str = Field(..., description="Unique subscription token")
+    # Inherits token, subscription_url and all base properties from PeerResponse
     
     # AmneziaWG 2.0
     awg0_pubkey: str = Field(..., description="AmneziaWG 2.0 client public key")

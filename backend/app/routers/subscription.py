@@ -1,3 +1,5 @@
+import re
+import urllib.parse
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -100,10 +102,12 @@ async def get_subscription(
     rx = peer.transfer_rx or 0
     tx = peer.transfer_tx or 0
 
-    # Inject standard subscription metadata headers
+    # Inject standard subscription metadata headers (RFC 5987 / RFC 6266 latin-1 safe)
     response.headers["Subscription-Userinfo"] = f"upload={tx}; download={rx}"
     response.headers["profile-update-interval"] = "24"
-    response.headers["content-disposition"] = f'inline; filename="{peer.name}"'
+    ascii_clean = re.sub(r'[^\x20-\x7E]', '_', peer.name).strip() or "device"
+    utf8_encoded = urllib.parse.quote(peer.name)
+    response.headers["content-disposition"] = f'inline; filename="{ascii_clean}"; filename*=UTF-8\'\'{utf8_encoded}'
 
     user_agent = request.headers.get("user-agent", "").lower()
 

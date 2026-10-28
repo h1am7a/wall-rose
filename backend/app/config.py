@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     AWG1_CONFIG_PATH: str = "/etc/amnezia/amneziawg/awg1-userspace.conf"
     AWG1_SERVER_PUBLIC_KEY: str = Field(default="", description="Base64 public key for awg1 server")
     # AWG 3.1 v3 obfuscation parameters
-    AWG1_JC: int = 2
+    AWG1_JC: int = 4
     AWG1_JMIN: int = 10
     AWG1_JMAX: int = 50
     AWG1_S1: int = 99

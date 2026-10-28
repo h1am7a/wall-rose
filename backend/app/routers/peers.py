@@ -35,8 +35,14 @@ from app.sub_generator import generate_awg_client_conf
 
 router = APIRouter(prefix="/api/peers", tags=["Device Management"], dependencies=[Depends(require_admin)])
 
-# Global lock to prevent IPAM race conditions under high concurrency
-PEER_PROVISIONING_LOCK = asyncio.Lock()
+# Loop-aware lock to prevent IPAM race conditions under high concurrency without event loop binding issues
+_PEER_LOCKS: dict[asyncio.AbstractEventLoop, asyncio.Lock] = {}
+
+def get_peer_provisioning_lock() -> asyncio.Lock:
+    loop = asyncio.get_running_loop()
+    if loop not in _PEER_LOCKS:
+        _PEER_LOCKS[loop] = asyncio.Lock()
+    return _PEER_LOCKS[loop]
 
 def serialize_peer_response(peer: Peer, base_url: str = "") -> PeerResponse:
     """Helper to convert ORM Peer into Pydantic PeerResponse with calculated fields."""
@@ -61,6 +67,7 @@ def serialize_peer_response(peer: Peer, base_url: str = "") -> PeerResponse:
         hy2_pass=peer.hy2_pass,
         last_handshake=peer.last_handshake or 0,
         last_handshake_relative=format_handshake_status(peer.last_handshake, peer.status),
+        token=peer.token,
         subscription_url=sub_url,
     )
 
@@ -69,7 +76,6 @@ def serialize_peer_detail(peer: Peer, base_url: str = "") -> PeerDetailResponse:
     base = serialize_peer_response(peer, base_url)
     return PeerDetailResponse(
         **base.model_dump(),
-        token=peer.token,
         awg0_pubkey=peer.awg0_pubkey,
         awg0_psk=peer.awg0_psk,
         awg1_pubkey=peer.awg1_pubkey,
@@ -117,7 +123,7 @@ async def create_peer(
     payload: PeerCreateRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    async with PEER_PROVISIONING_LOCK:
+    async with get_peer_provisioning_lock():
         # Allocate unique IPs
         try:
             ip_awg0, ip_awg1 = await allocate_peer_ips(db)

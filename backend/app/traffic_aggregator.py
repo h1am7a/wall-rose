@@ -13,7 +13,13 @@ from app.core_manager import fetch_awg_interface_metrics
 
 logger = logging.getLogger("wallrose.traffic_aggregator")
 
-_AGGREGATOR_LOCK = asyncio.Lock()
+_AGG_LOCKS: dict[asyncio.AbstractEventLoop, asyncio.Lock] = {}
+
+def get_aggregator_lock() -> asyncio.Lock:
+    loop = asyncio.get_running_loop()
+    if loop not in _AGG_LOCKS:
+        _AGG_LOCKS[loop] = asyncio.Lock()
+    return _AGG_LOCKS[loop]
 
 async def aggregate_traffic_once(session: Optional[AsyncSession] = None) -> Dict[str, Any]:
     """
@@ -23,10 +29,10 @@ async def aggregate_traffic_once(session: Optional[AsyncSession] = None) -> Dict
        traffic_baselines, updates baselines, and adds deltas to peer transfers.
        Also synchronizes latest handshake timestamps.
 
-    Protected by _AGGREGATOR_LOCK to guarantee strictly ONE active reader of /traffic?clear=1
+    Protected by get_aggregator_lock() to guarantee strictly ONE active reader of /traffic?clear=1
     and prevent race conditions between the background worker and manual endpoint triggers.
     """
-    async with _AGGREGATOR_LOCK:
+    async with get_aggregator_lock():
         if session is not None:
             return await _do_aggregate(session)
         else:
