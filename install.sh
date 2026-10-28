@@ -473,14 +473,14 @@ quic:
   maxStreamReceiveWindow: 8388608
   initConnReceiveWindow: 20971520
   maxConnReceiveWindow: 20971520
-  maxIdleTimeout: 30s
+  maxIdleTimeout: 120s
   maxIncomingStreams: 1024
 
 bandwidth:
   up: 500 mbps
   down: 500 mbps
 
-ignoreClientBandwidth: false
+ignoreClientBandwidth: true
 
 obfs:
   type: gecko
