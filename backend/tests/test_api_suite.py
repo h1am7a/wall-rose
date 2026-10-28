@@ -160,30 +160,39 @@ async def test_cores_and_config_editor():
         cores = res_cores.json()
         assert len(cores) >= 3
 
-        # 2. Read AWG 3.1 config
+        # 2. Update config: test validation rejection on missing PrivateKey
+        res_bad = await client.put(
+            "/api/cores/awg1/config",
+            json={"config_text": "# Invalid config without private key\n[Interface]\nListenPort = 48123\n"}
+        )
+        assert res_bad.status_code == 400
+
+        # Update with valid configuration
+        valid_awg_cfg = (
+            "[Interface]\n"
+            "Address = 10.9.0.1/24\n"
+            "ListenPort = 48123\n"
+            "PrivateKey = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n"
+        )
+        res_upd = await client.put(
+            "/api/cores/awg1/config",
+            json={"config_text": valid_awg_cfg}
+        )
+        assert res_upd.status_code == 200
+        assert res_upd.json()["ok"] is True
+
+        # 3. Read AWG 3.1 config: verified on disk
         res_cfg = await client.get("/api/cores/awg1/config")
         assert res_cfg.status_code == 200
         cfg_data = res_cfg.json()
         assert "core_id" in cfg_data
         assert "content" in cfg_data
+        assert "48123" in cfg_data["content"]
 
-        # 3. Update config
-        orig_content = cfg_data.get("content", "")
-        try:
-            res_upd = await client.put(
-                "/api/cores/awg1/config",
-                json={"config_text": "# Updated test config content\n[Interface]\nListenPort = 48123\n"}
-            )
-            assert res_upd.status_code == 200
-            assert res_upd.json()["ok"] is True
-
-            # 4. Restart core
-            res_restart = await client.post("/api/cores/awg1/restart")
-            assert res_restart.status_code == 200
-            assert res_restart.json()["ok"] is True
-        finally:
-            if orig_content:
-                await client.put("/api/cores/awg1/config", json={"config_text": orig_content})
+        # 4. Restart core
+        res_restart = await client.post("/api/cores/awg1/restart")
+        assert res_restart.status_code == 200
+        assert res_restart.json()["ok"] is True
 
 @pytest.mark.asyncio
 async def test_telemetry_accuracy():

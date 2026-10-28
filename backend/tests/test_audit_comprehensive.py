@@ -300,24 +300,26 @@ async def test_block5_every_api_endpoint_live_calls():
         assert r_cores.status_code == 200
         assert len(r_cores.json()) >= 3
 
+        valid_core_cfg = (
+            "[Interface]\n"
+            "Address = 10.9.0.1/24\n"
+            "ListenPort = 51821\n"
+            "PrivateKey = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n"
+        )
+        r_core_put = await client.put(
+            "/api/cores/awg1/config",
+            json={"config_text": valid_core_cfg},
+            headers=headers
+        )
+        assert r_core_put.status_code == 200
+
         r_core_cfg = await client.get("/api/cores/awg1/config", headers=headers)
         assert r_core_cfg.status_code == 200
         assert "content" in r_core_cfg.json()
+        assert "51821" in r_core_cfg.json()["content"]
 
-        orig_core_cfg = r_core_cfg.json().get("content", "")
-        try:
-            r_core_put = await client.put(
-                "/api/cores/awg1/config",
-                json={"config_text": "# Updated test config"},
-                headers=headers
-            )
-            assert r_core_put.status_code == 200
-
-            r_core_restart = await client.post("/api/cores/awg1/restart", headers=headers)
-            assert r_core_restart.status_code == 200
-        finally:
-            if orig_core_cfg:
-                await client.put("/api/cores/awg1/config", json={"config_text": orig_core_cfg}, headers=headers)
+        r_core_restart = await client.post("/api/cores/awg1/restart", headers=headers)
+        assert r_core_restart.status_code == 200
 
         # Peers endpoints
         r_create = await client.post(

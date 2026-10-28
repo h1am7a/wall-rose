@@ -155,27 +155,173 @@ async def test_route_cores_management_and_audit():
         assert "awg1" in core_ids
         assert "hy2" in core_ids
 
-        # 2. Read config
+        # 2. Strict PUT validation checks:
+        # a) Reject empty configuration text
+        r_empty = await client.put("/api/cores/awg1/config", json={"config_text": "   "})
+        assert r_empty.status_code == 400
+        assert "cannot be empty" in r_empty.json()["detail"]
+
+        # b) Reject AWG config missing [Interface] header
+        r_no_header = await client.put(
+            "/api/cores/awg1/config",
+            json={"config_text": "ListenPort = 51821\nPrivateKey = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n"}
+        )
+        assert r_no_header.status_code == 400
+        assert "must contain an [Interface] section" in r_no_header.json()["detail"]
+
+        # c) Reject AWG config missing PrivateKey directive
+        r_no_key = await client.put(
+            "/api/cores/awg1/config",
+            json={"config_text": "[Interface]\nListenPort = 51821\n"}
+        )
+        assert r_no_key.status_code == 400
+        assert "missing a required PrivateKey directive" in r_no_key.json()["detail"]
+
+        # d) Reject AWG config with placeholder PrivateKey (e.g. SERVER_AWG1_PRIVATE_KEY)
+        r_placeholder = await client.put(
+            "/api/cores/awg1/config",
+            json={"config_text": "[Interface]\nListenPort = 51821\nPrivateKey = SERVER_AWG1_PRIVATE_KEY\n"}
+        )
+        assert r_placeholder.status_code == 400
+        assert "placeholder detected" in r_placeholder.json()["detail"]
+
+        # e) Reject AWG config with malformed PrivateKey string
+        r_malformed_key = await client.put(
+            "/api/cores/awg1/config",
+            json={"config_text": "[Interface]\nListenPort = 51821\nPrivateKey = not_a_real_base64_key\n"}
+        )
+        assert r_malformed_key.status_code == 400
+        assert "must be a valid base64-encoded key" in r_malformed_key.json()["detail"]
+
+        # f) Reject Hysteria config with invalid YAML syntax
+        r_bad_yaml = await client.put(
+            "/api/cores/hy2/config",
+            json={"config_text": "listen: :443\nauth: [unclosed list\n"}
+        )
+        assert r_bad_yaml.status_code == 400
+        assert "Invalid YAML syntax" in r_bad_yaml.json()["detail"]
+
+        # g) Reject Hysteria config missing auth section
+        r_no_auth = await client.put(
+            "/api/cores/hy2/config",
+            json={"config_text": "listen: :443\ntls:\n  cert: test.crt\n"}
+        )
+        assert r_no_auth.status_code == 400
+        assert "missing the required 'auth' section" in r_no_auth.json()["detail"]
+
+        # 3. Happy path: PUT with valid cryptographic configurations
+        valid_awg1_cfg = (
+            "# Live Production Config\n"
+            "[Interface]\n"
+            "Address = 10.9.0.1/24\n"
+            "ListenPort = 51821\n"
+            "PrivateKey = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n"
+            "Jc = 4\n"
+            "Jmin = 10\n"
+            "Jmax = 50\n"
+            "S1 = 99\n"
+            "S2 = 24\n"
+            "S3 = 66\n"
+            "S4 = 33\n"
+            "H1 = 123456789\n"
+            "H2 = 987654321\n"
+            "H3 = 112233445\n"
+            "H4 = 556677889\n"
+        )
+        r_valid_awg = await client.put(
+            "/api/cores/awg1/config",
+            json={"config_text": valid_awg1_cfg}
+        )
+        assert r_valid_awg.status_code == 200
+        assert r_valid_awg.json()["ok"] is True
+
+        # Read config: verified from disk with real content
         r_cfg = await client.get("/api/cores/awg1/config")
         assert r_cfg.status_code == 200
         assert "content" in r_cfg.json()
+        assert "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=" in r_cfg.json()["content"]
 
-        # Update config
-        r_update = await client.put(
-            "/api/cores/awg1/config",
-            json={"config_text": "# Audit Test Config\nListenPort = 51821\n"}
+        # Valid PUT for Hysteria 2
+        valid_hy2_cfg = (
+            "listen: :443\n"
+            "tls:\n"
+            "  cert: /etc/hysteria/server.crt\n"
+            "  key: /etc/hysteria/server.key\n"
+            "auth:\n"
+            "  type: http\n"
+            "  http:\n"
+            "    url: http://127.0.0.1:8000/api/v1/hysteria/auth\n"
         )
-        assert r_update.status_code == 200
-        assert r_update.json()["ok"] is True
+        r_valid_hy2 = await client.put(
+            "/api/cores/hy2/config",
+            json={"config_text": valid_hy2_cfg}
+        )
+        assert r_valid_hy2.status_code == 200
 
-        # 3. Restart core daemon
+        # 4. Restart core daemon
         r_restart = await client.post("/api/cores/awg0/restart")
         assert r_restart.status_code == 200
         assert r_restart.json()["ok"] is True
 
-        # 4. Invalid core 404
+        # 5. Invalid core 404
         r_inv = await client.get("/api/cores/invalid_core/config")
         assert r_inv.status_code == 404
+
+@pytest.mark.asyncio
+async def test_core_config_missing_and_empty_file_returns_404(tmp_path):
+    """
+    Verifies that:
+    1. If the configuration file does not exist on disk, GET returns 404 with exact path.
+    2. If the configuration file is 1-byte / empty / corrupted, GET returns 404 with error detail.
+    No sensible default template is ever generated.
+    """
+    await init_db()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.post("/api/auth/login", json={"password": settings.ADMIN_PASSWORD})
+
+        # Test with a ProtocolCore that points to a non-existent file
+        from app.database import AsyncSessionLocal
+        from app.models import ProtocolCore
+        async with AsyncSessionLocal() as session:
+            test_core = ProtocolCore(
+                core_id="test_missing_core",
+                display_name="Missing Core",
+                protocol="amneziawg_v3",
+                port=51999,
+                subnet="10.99.0.0/24",
+                config_path=str(tmp_path / "non_existent.conf"),
+                is_active=False,
+                uptime_seconds=0
+            )
+            session.add(test_core)
+            await session.commit()
+
+        try:
+            # 1. Non-existent file -> 404
+            r_miss = await client.get("/api/cores/test_missing_core/config")
+            assert r_miss.status_code == 404
+            assert "not found on disk" in r_miss.json()["detail"]
+
+            # 2. 1-byte file -> 404
+            empty_file = tmp_path / "empty.conf"
+            empty_file.write_bytes(b"\n")
+            assert empty_file.stat().st_size <= 1
+
+            async with AsyncSessionLocal() as session:
+                c = await session.get(ProtocolCore, "test_missing_core")
+                c.config_path = str(empty_file)
+                await session.commit()
+
+            r_empty = await client.get("/api/cores/test_missing_core/config")
+            assert r_empty.status_code == 404
+            assert "empty or invalid on disk" in r_empty.json()["detail"]
+        finally:
+            async with AsyncSessionLocal() as session:
+                c = await session.get(ProtocolCore, "test_missing_core")
+                if c:
+                    await session.delete(c)
+                    await session.commit()
 
 @pytest.mark.asyncio
 async def test_route_telemetry_and_security_gate():

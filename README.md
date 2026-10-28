@@ -7,7 +7,7 @@
 <p align="center">
   <a href="#license"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="License MIT"></a>
   <a href="#release"><img src="https://img.shields.io/badge/Version-v1.0.0-yellow.svg?style=flat-square" alt="Version v1.0.0"></a>
-  <a href="#tests"><img src="https://img.shields.io/badge/Tests-55%2F55%20Passed-brightgreen.svg?style=flat-square" alt="Tests"></a>
+  <a href="#tests"><img src="https://img.shields.io/badge/Tests-56%2F56%20Passed-brightgreen.svg?style=flat-square" alt="Tests"></a>
 </p>
 
 ---
@@ -221,7 +221,7 @@ python3 -m venv venv
 source venv/bin/activate  # On Windows: .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-# Run complete test suite (55 comprehensive tests)
+# Run complete test suite (56 comprehensive tests)
 # Linux / macOS:
 PYTHONPATH=. pytest tests/ -v
 # Windows PowerShell:

@@ -1,4 +1,6 @@
 import os
+import re
+import yaml
 import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -18,6 +20,101 @@ from app.security import require_admin
 from app.audit import log_admin_action
 
 logger = logging.getLogger("wallrose.cores")
+
+PLACEHOLDER_KEY_PATTERNS = [
+    "server_awg",
+    "private_key",
+    "replace_me",
+    "placeholder",
+    "<private_key>",
+    "your_private_key",
+    "none",
+    "null",
+]
+
+def validate_core_config(core_id: str, config_text: str) -> None:
+    """
+    Strict validation of core configuration text prior to disk write:
+    1. Rejects empty or whitespace-only configurations.
+    2. For WireGuard/AmneziaWG (awg0, awg1):
+       - Must include an [Interface] section header.
+       - Must include a non-empty, non-placeholder PrivateKey directive.
+       - Validates PrivateKey string structure (valid base64, length 32-64 chars).
+    3. For Hysteria 2 (hy2):
+       - Must parse as valid YAML dictionary.
+       - Must contain required 'auth' and 'listen' top-level keys.
+    Raises HTTPException(400) if any validation check fails.
+    """
+    if not config_text or not config_text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Configuration content cannot be empty"
+        )
+
+    clean_text = config_text.strip()
+
+    if core_id in ("awg0", "awg1"):
+        if "[interface]" not in clean_text.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Configuration for {core_id} must contain an [Interface] section header"
+            )
+
+        match = re.search(r"^\s*PrivateKey\s*=\s*(.+)$", clean_text, re.MULTILINE | re.IGNORECASE)
+        if not match:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Configuration for {core_id} is missing a required PrivateKey directive"
+            )
+
+        raw_key = match.group(1).strip()
+        raw_key = re.split(r"[#;]", raw_key)[0].strip()
+
+        if not raw_key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Configuration for {core_id} has an empty PrivateKey"
+            )
+
+        key_lower = raw_key.lower()
+        if any(p in key_lower for p in PLACEHOLDER_KEY_PATTERNS):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid PrivateKey for {core_id}: template placeholder detected ('{raw_key}'). Real cryptographic key required"
+            )
+
+        if not re.fullmatch(r"[A-Za-z0-9+/=]{32,64}", raw_key):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid PrivateKey format for {core_id}: must be a valid base64-encoded key (32-64 chars)"
+            )
+
+    elif core_id == "hy2":
+        try:
+            parsed = yaml.safe_load(clean_text)
+        except yaml.YAMLError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid YAML syntax in Hysteria 2 configuration: {e}"
+            )
+
+        if not isinstance(parsed, dict):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Hysteria 2 configuration must be a valid YAML mapping (dictionary)"
+            )
+
+        if "auth" not in parsed or not parsed["auth"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Hysteria 2 configuration is missing the required 'auth' section"
+            )
+
+        if "listen" not in parsed or not parsed["listen"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Hysteria 2 configuration is missing the required 'listen' directive"
+            )
 
 router = APIRouter(prefix="/api/cores", tags=["Protocol Engines"], dependencies=[Depends(require_admin)])
 
@@ -87,71 +184,40 @@ async def get_core_config(core_id: str, db: AsyncSession = Depends(get_db)):
 
     path = core.config_path
     if not os.path.exists(path):
-        # Return sensible default template if running in dev environment or before initial deployment
-        if core_id == "awg0":
-            content = f"""# Wall Rose AmneziaWG 2.0 Server Configuration
-[Interface]
-Address = 10.8.0.1/24
-ListenPort = {core.port}
-PrivateKey = SERVER_AWG0_PRIVATE_KEY
-Jc = {settings.AWG0_JC}
-Jmin = {settings.AWG0_JMIN}
-Jmax = {settings.AWG0_JMAX}
-S1 = {settings.AWG0_S1}
-S2 = {settings.AWG0_S2}
-S3 = {settings.AWG0_S3}
-S4 = {settings.AWG0_S4}
-H1 = {settings.AWG0_H1}
-H2 = {settings.AWG0_H2}
-H3 = {settings.AWG0_H3}
-H4 = {settings.AWG0_H4}
-"""
-        elif core_id == "awg1":
-            content = f"""# Wall Rose AmneziaWG 3.1 Server Configuration (userspace, Header Protection)
-[Interface]
-Address = 10.9.0.1/24
-ListenPort = {core.port}
-PrivateKey = SERVER_AWG1_PRIVATE_KEY
-Jc = {settings.AWG1_JC}
-Jmin = {settings.AWG1_JMIN}
-Jmax = {settings.AWG1_JMAX}
-S1 = {settings.AWG1_S1}
-S2 = {settings.AWG1_S2}
-S3 = {settings.AWG1_S3}
-S4 = {settings.AWG1_S4}
-H1 = {settings.AWG1_H1}
-H2 = {settings.AWG1_H2}
-H3 = {settings.AWG1_H3}
-H4 = {settings.AWG1_H4}
-HeaderProtectionKey = {settings.AWG1_HEADER_PROTECTION_KEY}
-"""
-        else:
-            content = f"""# Wall Rose Hysteria 2.13 Server Configuration
-listen: :{core.port}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Configuration file for core '{core_id}' not found on disk ({path})"
+        )
 
-tls:
-  cert: /etc/hysteria/server.crt
-  key: /etc/hysteria/server.key
+    try:
+        size = os.path.getsize(path)
+    except OSError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unable to inspect configuration file size: {e}"
+        )
 
-obfs:
-  type: gecko
-  gecko:
-    password: {settings.HY2_OBFS_PASSWORD}
-    minPacketSize: {settings.HY2_OBFS_MIN_PACKET}
-    maxPacketSize: {settings.HY2_OBFS_MAX_PACKET}
+    if size <= 1:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Configuration file for core '{core_id}' is empty or invalid on disk ({path})"
+        )
 
-auth:
-  type: http
-  http:
-    url: http://127.0.0.1:8000/api/v1/hysteria/auth
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except OSError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to read configuration file: {e}"
+        )
 
-trafficStats:
-  listen: 127.0.0.1:9999
-"""
-        return {"core_id": core_id, "config_path": path, "content": content}
+    if not content.strip():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Configuration file for core '{core_id}' contains no valid data ({path})"
+        )
 
-    with open(path, "r", encoding="utf-8") as f:
-        content = f.read()
     return {"core_id": core_id, "config_path": path, "content": content}
 
 @router.put(
@@ -169,6 +235,9 @@ async def update_core_config(
     core = await db.get(ProtocolCore, core_id)
     if not core:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Protocol core not found")
+
+    # Validate configuration text before attempting any disk writes
+    validate_core_config(core_id, payload.config_text)
 
     path = core.config_path
     try:
