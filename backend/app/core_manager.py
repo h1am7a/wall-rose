@@ -533,14 +533,14 @@ def get_awg_server_params(interface: str) -> Dict[str, Any]:
             "h3": str(settings.AWG1_H3),
             "h4": str(settings.AWG1_H4),
             "header_protection_key": str(settings.AWG1_HEADER_PROTECTION_KEY),
-            "content_padding_addition": str(settings.AWG1_CONTENT_PADDING_ADDITION),
-            "rekey_after_time": 120,
-            "rekey_timeout": 5,
-            "reject_after_time": 180,
-            "keepalive_timeout": 10,
-            "max_handshake_attempts": 18,
-            "random_trailers": True,
-            "disable_cookies": True,
+            "content_padding_addition": str(settings.AWG1_CONTENT_PADDING_ADDITION or "32-128"),
+            "rekey_after_time": "100-120",
+            "rekey_timeout": "3-7",
+            "reject_after_time": "150-180",
+            "keepalive_timeout": "5-15",
+            "max_handshake_attempts": "15-20",
+            "random_trailers": "on",
+            "disable_cookies": "on",
         }
     else:
         # Trinity etalon defaults for AWG0-v2
@@ -604,6 +604,10 @@ def get_awg_server_params(interface: str) -> Dict[str, Any]:
                             params["keepalive_timeout"] = int(v_val) if v_val.isdigit() else v_val.strip("\"'")
                         elif k_lower in ("maxhandshakeattempts", "max-handshake-attempts"):
                             params["max_handshake_attempts"] = int(v_val) if v_val.isdigit() else v_val.strip("\"'")
+                        elif k_lower in ("randomtrailers", "random-trailers"):
+                            params["random_trailers"] = v_val.strip("\"'")
+                        elif k_lower in ("disablecookies", "disable-cookies"):
+                            params["disable_cookies"] = v_val.strip("\"'")
         except Exception as e:
             logger.warning(f"Notice reading params from {conf_path}: {e}")
 

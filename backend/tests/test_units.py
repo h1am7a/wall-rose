@@ -272,6 +272,14 @@ def test_awg_conf_structure():
     conf3 = generate_awg_client_conf(peer, version="3.1", server_ip="203.0.113.1")
     assert "Address = 10.9.0.10/32" in conf3
     assert "Endpoint = 203.0.113.1:" in conf3
+    assert "ContentPaddingAddition" in conf3
+    assert "RekeyAfterTime" in conf3
+    assert "RekeyTimeout" in conf3
+    assert "RejectAfterTime" in conf3
+    assert "KeepaliveTimeout" in conf3
+    assert "MaxHandshakeAttempts" in conf3
+    assert "RandomTrailers = on" in conf3
+    assert "DisableCookies = on" in conf3
 
 @pytest.mark.asyncio
 async def test_traffic_aggregator_delta_and_baseline(monkeypatch):

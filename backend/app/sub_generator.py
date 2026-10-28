@@ -40,9 +40,14 @@ AllowedIPs = 0.0.0.0/0, ::/0
 PersistentKeepalive = 25
 """
     else:
-        # AWG 3.1 (version 3 with header protection)
+        # AWG 3.1 (version 3 with header protection and advanced stealth parameters)
         p = get_awg_server_params("awg1")
         pub = get_server_public_key("awg1")
+        rt_val = p.get('random_trailers')
+        rt_str = "on" if rt_val in (True, "on", "true", "1") else (rt_val or "on")
+        dc_val = p.get('disable_cookies')
+        dc_str = "on" if dc_val in (True, "on", "true", "1") else (dc_val or "on")
+
         return f"""[Interface]
 Address = {peer.awg1_ip}/32
 PrivateKey = {peer.awg1_privkey}
@@ -59,6 +64,14 @@ H2 = {p['h2']}
 H3 = {p['h3']}
 H4 = {p['h4']}
 HeaderProtectionKey = {p.get('header_protection_key', '')}
+ContentPaddingAddition = {p.get('content_padding_addition', '32-128')}
+RekeyAfterTime = {p.get('rekey_after_time', '100-120')}
+RekeyTimeout = {p.get('rekey_timeout', '3-7')}
+RejectAfterTime = {p.get('reject_after_time', '150-180')}
+KeepaliveTimeout = {p.get('keepalive_timeout', '5-15')}
+MaxHandshakeAttempts = {p.get('max_handshake_attempts', '15-20')}
+RandomTrailers = {rt_str}
+DisableCookies = {dc_str}
 
 [Peer]
 PublicKey = {pub}
