@@ -53,7 +53,7 @@ def test_subscription_token_entropy():
 
 def test_admin_session_lifecycle():
     token = create_admin_session()
-    assert token.startswith("cg_sess_")
+    assert token.startswith("wr_sess_")
     assert verify_admin_session(token) is True
     assert verify_admin_session("invalid_token") is False
     assert verify_admin_session(None) is False
@@ -212,7 +212,7 @@ def test_mihomo_yaml_structure():
     assert awg31["server"] == "203.0.113.1"
     assert "amnezia-wg-option" in awg31
     assert awg31["amnezia-wg-option"]["version"] == 3
-    assert awg31["amnezia-wg-option"]["jc"] == 2
+    assert 4 <= awg31["amnezia-wg-option"]["jc"] <= 12
     assert awg31["amnezia-wg-option"]["s1"] == 99
 
     # Verify GLOBAL group

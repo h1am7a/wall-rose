@@ -27,7 +27,7 @@ async def test_auth_router():
         data = res_ok.json()
         assert data["ok"] is True
         token = data["token"]
-        assert token.startswith("cg_sess_")
+        assert token.startswith("wr_sess_")
         assert data["access_token"] == token
         assert data["token_type"] == "bearer"
 
