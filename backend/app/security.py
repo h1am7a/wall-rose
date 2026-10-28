@@ -1,4 +1,5 @@
 import base64
+import hmac
 import secrets
 import time
 from typing import Optional, Tuple
@@ -13,6 +14,12 @@ from app.config import settings
 ADMIN_SESSIONS: dict[str, float] = {}
 
 security_bearer = HTTPBearer(auto_error=False)
+
+def verify_password(plain_password: str, expected_password: str) -> bool:
+    """Constant-time password verification to prevent timing attacks."""
+    if not isinstance(plain_password, str) or not isinstance(expected_password, str):
+        return False
+    return hmac.compare_digest(plain_password.encode("utf-8"), expected_password.encode("utf-8"))
 
 def generate_x25519_keypair() -> Tuple[str, str]:
     """
@@ -47,7 +54,7 @@ def generate_subscription_token() -> str:
 
 def create_admin_session() -> str:
     """Issue a new session token for the panel administrator."""
-    token = f"cg_sess_{secrets.token_urlsafe(32)}"
+    token = f"wr_sess_{secrets.token_urlsafe(32)}"
     ADMIN_SESSIONS[token] = time.time()
     return token
 

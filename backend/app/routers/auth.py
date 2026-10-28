@@ -2,7 +2,7 @@ import time
 from fastapi import APIRouter, Response, Request, HTTPException, status
 from app.config import settings
 from app.schemas import AdminLoginRequest, AdminLoginResponse, AdminSessionStatus, ApiResponse
-from app.security import create_admin_session, verify_admin_session, revoke_admin_session
+from app.security import create_admin_session, verify_admin_session, revoke_admin_session, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["Admin Authentication"])
 
@@ -30,7 +30,7 @@ async def admin_login(payload: AdminLoginRequest, request: Request, response: Re
                 detail="Too many failed login attempts. Security lockout active for 5 minutes."
             )
 
-    if payload.password != settings.ADMIN_PASSWORD:
+    if not verify_password(payload.password, settings.ADMIN_PASSWORD):
         if client_ip not in FAILED_ATTEMPTS:
             FAILED_ATTEMPTS[client_ip] = []
         FAILED_ATTEMPTS[client_ip].append(now)
