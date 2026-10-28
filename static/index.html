@@ -1958,9 +1958,10 @@ rules:
     }
 
     async function openYamlPreview() {
-      if (peersData && peersData.length > 0 && peersData[0].subscription_token) {
+      const subUrl = (peersData && peersData.length > 0) ? (peersData[0].subscription_url || (peersData[0].token ? `/sub/${peersData[0].token}` : null)) : null;
+      if (subUrl) {
         try {
-          const res = await fetch('/sub/' + peersData[0].subscription_token);
+          const res = await fetch(subUrl);
           if (res.ok) {
             const liveYaml = await res.text();
             document.getElementById('modalYamlBox').textContent = liveYaml;
@@ -2293,7 +2294,7 @@ rules:
                   </div>
                   <div class="spec-item">
                     <span class="spec-key">Hysteria 2:</span>
-                    <span class="spec-val font-mono" style="cursor: pointer; font-family: var(--font-tech);" title="Click to copy password" onclick="copyToClipboard('${escapeHtml(peer.hy2_pass)}', '*COPIED!* Hysteria 2 password copied.');">${escapeHtml(peer.hy2_pass)}</span>
+                    <span class="spec-val font-mono" style="cursor: pointer; font-family: var(--font-tech);" title="Click to copy password" onclick="copyHy2Pass(${peer.id});">${escapeHtml(peer.hy2_pass)}</span>
                   </div>
                   <div class="spec-item">
                     <span class="spec-key">Total Traffic:</span>
@@ -2308,7 +2309,7 @@ rules:
 
               <div>
                 <div class="card-actions-row">
-                  <button class="comic-btn comic-btn-black" onclick="openQrModal('${subUrl}', '${escapeHtml(peer.name)}')">
+                  <button class="comic-btn comic-btn-black" onclick="openQrModal(${peer.id})">
                     <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.2;">
                       <rect width="5" height="5" x="3" y="3" rx="1"/>
                       <rect width="5" height="5" x="16" y="3" rx="1"/>
@@ -2325,15 +2326,15 @@ rules:
                     </svg>
                     QR Code
                   </button>
-                  <button class="comic-btn comic-btn-yellow" onclick="copyMihomoSubUrl('${subUrl}', '${escapeHtml(peer.name)}')">
+                  <button class="comic-btn comic-btn-yellow" onclick="copyMihomoSubUrl(${peer.id})">
                     <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                     Sub URL
                   </button>
-                  <button class="comic-btn comic-btn-blue" onclick="copySingboxSubUrl('${subUrl}?format=json', '${escapeHtml(peer.name)}')">
+                  <button class="comic-btn comic-btn-blue" onclick="copySingboxSubUrl(${peer.id})">
                     <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                     Sing-box
                   </button>
-                  <button class="comic-btn" onclick="openPeerAwgModal(${peer.id}, '${escapeHtml(peer.name)}', '${peer.awg0_ip}', '${peer.awg1_ip}')">
+                  <button class="comic-btn" onclick="openPeerAwgModal(${peer.id})">
                     <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                     AWG .conf
                   </button>
@@ -2343,7 +2344,7 @@ rules:
                   <button class="comic-btn ${isSuspended ? 'comic-btn-yellow' : 'comic-btn-red'}" style="padding: 4px 10px; font-size: 0.68rem;" onclick="togglePeerStatus(${peer.id}, '${peer.status}')">
                     ${isSuspended ? 'Resume Node' : 'Suspend'}
                   </button>
-                  <button class="comic-btn comic-btn-red icon-only" style="padding: 4px 8px;" onclick="deletePeerNode(${peer.id}, '${escapeHtml(peer.name)}')" title="Revoke & Delete Device">
+                  <button class="comic-btn comic-btn-red icon-only" style="padding: 4px 8px;" onclick="deletePeerNode(${peer.id})" title="Revoke & Delete Device">
                     <svg viewBox="0 0 24 24" style="width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2.5;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                   </button>
                 </div>
@@ -2388,7 +2389,13 @@ rules:
       if (nameInput) nameInput.focus();
     }
 
+    function getPeerById(id) {
+      return (peersData || []).find(p => p.id === id);
+    }
+
+    let isSubmittingPeer = false;
     async function submitNewPeer() {
+      if (isSubmittingPeer) return;
       const name = document.getElementById('newPeerName').value.trim();
       if (!name) {
         showToast('*VALIDATION ERROR* Please enter a device or person name.', 'error');
@@ -2396,6 +2403,7 @@ rules:
       }
 
       try {
+        isSubmittingPeer = true;
         const res = await fetch('/api/peers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2418,15 +2426,18 @@ rules:
         }
       } catch (err) {
         showToast(`*NETWORK ERROR* ${err.message || 'Connection failed'}`, 'error');
+      } finally {
+        isSubmittingPeer = false;
       }
     }
 
     // Modal: AWG Conf Generator
     function openPeerAwgModal(peerId, peerName, ip2, ip3) {
-      curPeerId = peerId;
-      curPeerName = peerName;
-      curIp2 = ip2;
-      curIp3 = ip3;
+      let peer = (typeof peerId === 'number') ? getPeerById(peerId) : null;
+      curPeerId = peer ? peer.id : peerId;
+      curPeerName = peer ? peer.name : (peerName || `Node #${curPeerId}`);
+      curIp2 = peer ? peer.awg0_ip : ip2;
+      curIp3 = peer ? peer.awg1_ip : ip3;
       setAwgVer('3.1');
       document.getElementById('awgModal').classList.add('open');
     }
@@ -2478,9 +2489,18 @@ rules:
     let currentQrName = '';
     let qrcodeInstance = null;
 
-    function openQrModal(url, name) {
+    function openQrModal(arg1, arg2) {
+      let url = arg1;
+      let name = arg2;
+      if (typeof arg1 === 'number') {
+        const peer = getPeerById(arg1);
+        if (!peer) return;
+        const origin = window.location.origin;
+        url = (peer.subscription_url && peer.subscription_url.startsWith('http')) ? peer.subscription_url : `${origin}${peer.subscription_url || `/sub/${peer.token}`}`;
+        name = peer.name;
+      }
       currentQrUrl = url;
-      currentQrName = name;
+      currentQrName = name || 'DEVICE';
 
       const title = document.getElementById('qrModalTitle');
       if (title) title.textContent = `${name.toUpperCase()} — MIHOMO QR CODE`;
@@ -2639,11 +2659,36 @@ rules:
     }
 
     // Peer Action Helpers
-    function copyMihomoSubUrl(url, name) {
+    function copyHy2Pass(peerId) {
+      const peer = getPeerById(peerId);
+      if (!peer) return;
+      copyToClipboard(peer.hy2_pass, '*COPIED!* Hysteria 2 password copied.');
+    }
+
+    function copyMihomoSubUrl(arg1, arg2) {
+      let url = arg1;
+      let name = arg2;
+      if (typeof arg1 === 'number') {
+        const peer = getPeerById(arg1);
+        if (!peer) return;
+        const origin = window.location.origin;
+        url = (peer.subscription_url && peer.subscription_url.startsWith('http')) ? peer.subscription_url : `${origin}${peer.subscription_url || `/sub/${peer.token}`}`;
+        name = peer.name;
+      }
       copyToClipboard(url, `*CLICK!* Sub URL copied for ${name}!`);
     }
 
-    function copySingboxSubUrl(url, name) {
+    function copySingboxSubUrl(arg1, arg2) {
+      let url = arg1;
+      let name = arg2;
+      if (typeof arg1 === 'number') {
+        const peer = getPeerById(arg1);
+        if (!peer) return;
+        const origin = window.location.origin;
+        const base = (peer.subscription_url && peer.subscription_url.startsWith('http')) ? peer.subscription_url : `${origin}${peer.subscription_url || `/sub/${peer.token}`}`;
+        url = `${base}?format=json`;
+        name = peer.name;
+      }
       copyToClipboard(url, `*ZAP!* Sing-box Sub URL copied for ${name}!`);
     }
 
@@ -2674,13 +2719,15 @@ rules:
     }
 
     async function deletePeerNode(peerId, peerName) {
-      if (!confirm(`Are you sure you want to revoke & purge '${peerName}'? Access keys will be invalidated.`)) {
+      const peer = (typeof peerId === 'number') ? getPeerById(peerId) : null;
+      const name = peer ? peer.name : (peerName || `#${peerId}`);
+      if (!confirm(`Are you sure you want to revoke & purge '${name}'? Access keys will be invalidated.`)) {
         return;
       }
       try {
         const res = await fetch(`/api/peers/${peerId}`, { method: 'DELETE' });
         if (res.ok) {
-          showToast(`*REVOKED!* ${peerName} purged from mesh.`, 'success');
+          showToast(`*REVOKED!* ${name} purged from mesh.`, 'success');
           await loadPeers();
           await loadTelemetry();
         } else {
