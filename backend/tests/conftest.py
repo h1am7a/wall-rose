@@ -1,4 +1,5 @@
 import sqlite3
+import subprocess as _sp
 import pytest
 from app.config import settings
 from app.routers.auth import FAILED_ATTEMPTS
@@ -6,15 +7,48 @@ from app.routers.auth import FAILED_ATTEMPTS
 @pytest.fixture(autouse=True)
 def prevent_accidental_daemon_restart(monkeypatch):
     """
-    Global safety guard:
-    Ensures that any test in the suite that invokes core restarts
-    defaults to a safe mock unless explicitly patched with custom behavior.
-    Prevents tests from accidentally running real systemctl commands on Linux hosts.
+    Global safety guard for pytest suite on live servers:
+    1. Intercepts all subprocess.run calls so that any command starting with 'systemctl',
+       'awg', or 'wg' is completely intercepted and never touches the host systemd or kernel.
+    2. Mocks core_manager live daemon and peer sync functions:
+       - reload_awg_service
+       - restart_daemon_service
+       - live_add_awg_peer
+       - live_remove_awg_peer
+       - is_linux_and_root
+       Ensures tests run in a fully isolated mock environment without dropping active
+       services, corrupting /etc/amnezia/ configs, or resetting unit PIDs/uptime.
     """
     import app.routers.cores
+    import app.routers.peers
     import app.core_manager
-    monkeypatch.setattr(app.routers.cores, "restart_daemon_service", lambda service_name: True)
+
+    # 1. Subprocess-level safety barrier: catch any systemctl, awg, or wg execution
+    _orig_run = _sp.run
+
+    def _safe_subprocess_run(cmd, *args, **kwargs):
+        if isinstance(cmd, (list, tuple)) and cmd:
+            bin_name = str(cmd[0]).lower()
+            if "systemctl" in bin_name:
+                action = str(cmd[1]).lower() if len(cmd) > 1 else ""
+                if action in ("is-active", "status"):
+                    return type("CompletedProcess", (), {"returncode": 0, "stdout": "active\n", "stderr": ""})()
+                return type("CompletedProcess", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+            if "awg" in bin_name or "wg" in bin_name:
+                return type("CompletedProcess", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+        return _orig_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(_sp, "run", _safe_subprocess_run)
+
+    # 2. Mock all core_manager and router live reload/sync functions
+    monkeypatch.setattr(app.core_manager, "is_linux_and_root", lambda: False)
+    monkeypatch.setattr(app.core_manager, "reload_awg_service", lambda interface: True)
     monkeypatch.setattr(app.core_manager, "restart_daemon_service", lambda service_name: True)
+    monkeypatch.setattr(app.routers.cores, "restart_daemon_service", lambda service_name: True)
+    monkeypatch.setattr(app.core_manager, "live_add_awg_peer", lambda *a, **k: True)
+    monkeypatch.setattr(app.routers.peers, "live_add_awg_peer", lambda *a, **k: True)
+    monkeypatch.setattr(app.core_manager, "live_remove_awg_peer", lambda *a, **k: True)
+    monkeypatch.setattr(app.routers.peers, "live_remove_awg_peer", lambda *a, **k: True)
 
 @pytest.fixture(autouse=True)
 def clean_test_state():
