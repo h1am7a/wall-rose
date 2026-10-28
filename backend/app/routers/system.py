@@ -1,8 +1,18 @@
 import shutil
 import asyncio
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select, update, func, desc
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas import SystemLogResponse
+from app.database import get_db
+from app.models import ProtocolAlert, utc_now
+from app.schemas import (
+    SystemLogResponse,
+    ProtocolAlertItem,
+    ProtocolAlertListResponse,
+    ApiResponse,
+)
 from app.security import require_admin
 from app.audit import sanitize_logs
 
@@ -88,3 +98,94 @@ async def get_system_logs(
         lines_returned=len(sanitized),
         logs=sanitized
     )
+
+@router.get(
+    "/alerts",
+    response_model=ProtocolAlertListResponse,
+    summary="List Protocol Incidents and Channel Degradations",
+    description="Returns active and recent protocol daemon crashes, restart-loops, and silent channel drop alerts."
+)
+async def get_protocol_alerts(
+    active_only: bool = Query(True, description="Filter for unresolved alerts only"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of alerts to return"),
+    db: AsyncSession = Depends(get_db),
+):
+    count_stmt = select(func.count(ProtocolAlert.id)).where(ProtocolAlert.resolved == False)
+    active_count = (await db.execute(count_stmt)).scalar() or 0
+
+    query = select(ProtocolAlert)
+    if active_only:
+        query = query.where(ProtocolAlert.resolved == False)
+
+    # Sort by active status, severity priority, and recency
+    query = query.order_by(
+        ProtocolAlert.resolved.asc(),
+        ProtocolAlert.last_seen.desc()
+    ).limit(limit)
+
+    alerts = (await db.execute(query)).scalars().all()
+    items = [
+        ProtocolAlertItem(
+            id=a.id,
+            unit=a.unit,
+            fingerprint=a.fingerprint,
+            message=a.message,
+            severity=a.severity,
+            count=a.count,
+            first_seen=a.first_seen,
+            last_seen=a.last_seen,
+            resolved=a.resolved,
+            resolved_at=a.resolved_at
+        )
+        for a in alerts
+    ]
+
+    return ProtocolAlertListResponse(
+        ok=True,
+        active_count=active_count,
+        items=items
+    )
+
+@router.post(
+    "/alerts/{alert_id}/resolve",
+    response_model=ApiResponse,
+    summary="Acknowledge and Resolve Protocol Alert",
+    description="Manually marks a specific alert incident as resolved."
+)
+async def resolve_protocol_alert(
+    alert_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    alert = await db.get(ProtocolAlert, alert_id)
+    if not alert:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Protocol alert {alert_id} not found"
+        )
+
+    alert.resolved = True
+    alert.resolved_at = utc_now()
+    await db.commit()
+
+    return ApiResponse(ok=True, message=f"Protocol alert {alert_id} marked as resolved")
+
+@router.post(
+    "/alerts/clear",
+    response_model=ApiResponse,
+    summary="Clear All Active Protocol Alerts",
+    description="Resolves all currently active protocol alerts."
+)
+async def clear_all_protocol_alerts(
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = (
+        update(ProtocolAlert)
+        .where(ProtocolAlert.resolved == False)
+        .values(resolved=True, resolved_at=utc_now())
+        .execution_options(synchronize_session=False)
+    )
+    res = await db.execute(stmt)
+    await db.commit()
+
+    count = res.rowcount or 0
+    return ApiResponse(ok=True, message=f"Resolved {count} active protocol alert(s)")

@@ -205,3 +205,22 @@ class SystemLogResponse(BaseModel):
     lines_requested: int = Field(..., description="Requested line count")
     lines_returned: int = Field(..., description="Returned sanitized line count")
     logs: list[str] = Field(..., description="Sanitized log lines")
+
+class ProtocolAlertItem(BaseModel):
+    """Protocol error or silent channel drop incident."""
+    id: int
+    unit: str
+    fingerprint: str
+    message: str
+    severity: str
+    count: int
+    first_seen: datetime
+    last_seen: datetime
+    resolved: bool
+    resolved_at: Optional[datetime] = None
+
+class ProtocolAlertListResponse(BaseModel):
+    """List of active and historical protocol alerts."""
+    ok: bool = Field(True, description="Query outcome")
+    active_count: int = Field(..., description="Number of currently unresolved alerts")
+    items: list[ProtocolAlertItem] = Field(..., description="Alert records")

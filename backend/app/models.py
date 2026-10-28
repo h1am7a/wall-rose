@@ -91,3 +91,19 @@ class TrafficBaseline(Base):
     last_tx = Column(BigInteger, default=0, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
+class ProtocolAlert(Base):
+    """Protocol error incidents, restart loops, and silent channel drops."""
+    __tablename__ = "protocol_alerts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    unit = Column(String(32), nullable=False, index=True)          # awg0, awg1, hy2, system
+    fingerprint = Column(String(64), nullable=False, index=True)   # Deduplication / normalized error key
+    message = Column(Text, nullable=False)                         # Sanitized incident detail
+    severity = Column(String(16), default="ERROR", nullable=False) # CRITICAL, ERROR, WARNING
+    count = Column(Integer, default=1, nullable=False)             # Recurrence counter
+    first_seen = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    last_seen = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    resolved = Column(Boolean, default=False, nullable=False, index=True)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+

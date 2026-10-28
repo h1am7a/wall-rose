@@ -12,6 +12,7 @@ from app.database import init_db, AsyncSessionLocal
 from app.models import Peer
 from app.core_manager import auth_cache
 from app.traffic_aggregator import run_sync_loop
+from app.journal_watch import run_journal_watch_loop
 
 # Routers
 from app.routers import auth, peers, cores, telemetry, subscription, webhook, backup, audit, system
@@ -75,15 +76,17 @@ async def lifespan(app: FastAPI):
         for p in peers_list:
             auth_cache.set_user(p.hy2_user, p.hy2_pass, p.status)
 
-    # Spawn background traffic aggregator worker (30s interval)
+    # Spawn background workers (traffic aggregator 30s, protocol watcher 30s)
     aggregator_task = asyncio.create_task(run_sync_loop(interval=30))
+    watcher_task = asyncio.create_task(run_journal_watch_loop(interval=30))
 
     yield
 
     # Shutdown
     aggregator_task.cancel()
+    watcher_task.cancel()
     try:
-        await aggregator_task
+        await asyncio.gather(aggregator_task, watcher_task, return_exceptions=True)
     except asyncio.CancelledError:
         pass
     auth_cache.clear()

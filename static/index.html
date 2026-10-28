@@ -578,6 +578,77 @@
       color: #ffffff;
     }
 
+    .nav-alert-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent-red);
+      color: #ffffff;
+      font-family: var(--font-display);
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 1px 6px;
+      border: 1.5px solid var(--ink-border);
+      box-shadow: 1.5px 1.5px 0px var(--ink-shadow);
+      border-radius: 999px;
+      margin-left: 6px;
+      line-height: 1.2;
+    }
+
+    .alert-sev-badge {
+      display: inline-block;
+      font-family: var(--font-display);
+      font-size: 0.65rem;
+      font-weight: 800;
+      padding: 2px 7px;
+      border: 1.5px solid var(--ink-border);
+      box-shadow: 1.5px 1.5px 0px var(--ink-shadow);
+      text-transform: uppercase;
+      border-radius: 4px;
+    }
+
+    .alert-sev-critical {
+      background: var(--accent-red);
+      color: #ffffff;
+    }
+
+    .alert-sev-error {
+      background: var(--accent-yellow);
+      color: #141416;
+    }
+
+    .alert-sev-warning {
+      background: #fde047;
+      color: #713f12;
+    }
+
+    .alert-sev-resolved {
+      background: #86efac;
+      color: #14532d;
+    }
+
+    .alert-unit-tag {
+      font-family: var(--font-tech);
+      font-weight: 700;
+      font-size: 0.75rem;
+      padding: 2px 6px;
+      background: var(--bg-panel-alt);
+      border: 1.5px solid var(--ink-border);
+      border-radius: 4px;
+    }
+
+    .alert-count-pill {
+      display: inline-block;
+      font-family: var(--font-display);
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 1px 6px;
+      border: 1.5px solid var(--ink-border);
+      background: var(--bg-canvas);
+      color: var(--text-main);
+      border-radius: 4px;
+    }
+
     .logs-sub-btn svg {
       width: 14px;
       height: 14px;
@@ -1696,6 +1767,7 @@
           <polyline points="10 9 9 9 8 9"/>
         </svg>
         Logs
+        <span id="navAlertBadge" class="nav-alert-badge" style="display: none;">0</span>
       </button>
     </nav>
 
@@ -2017,6 +2089,11 @@ rules:
             <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
             Service Logs
           </button>
+          <button class="logs-sub-btn" id="logsSubTabAlerts" onclick="switchLogsSubTab('alerts')">
+            <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Protocol Alerts
+            <span id="subAlertBadge" class="nav-alert-badge" style="display: none;">0</span>
+          </button>
         </div>
 
         <!-- 3a: Security Audit Sub-Panel -->
@@ -2168,6 +2245,63 @@ rules:
               <span id="systemConsoleTime" style="font-family: monospace; font-size: 0.70rem;">--:--:--</span>
             </div>
             <pre id="systemConsoleBody" class="system-console-body">Connecting to systemd-journald...</pre>
+          </div>
+        </div>
+
+        <!-- 3c: Protocol Alerts Sub-Panel -->
+        <div id="logsPanelAlerts" class="logs-panel-card" style="display: none;">
+          <div class="sfx-badge" style="background: var(--accent-red); color: #ffffff; transform: rotate(1.5deg);">ACTIVE WATCH</div>
+          <div class="blueprint-header" style="margin-bottom: 14px;">
+            <div>
+              <h3 style="margin: 0 0 4px 0;">Automated Protocol Watch &amp; Alerts</h3>
+              <div class="blueprint-sub">Background daemon crash detection, systemd start limits, and UAPI silent peer drop monitoring</div>
+            </div>
+          </div>
+
+          <!-- Controls Bar -->
+          <div class="logs-controls-bar">
+            <div class="logs-filter-group">
+              <div>
+                <label style="font-family: var(--font-display); font-size: 0.72rem; text-transform: uppercase; color: var(--text-dim); display: block; margin-bottom: 2px;">Filter</label>
+                <select id="alertsFilterActive" class="logs-select" onchange="loadProtocolAlerts()">
+                  <option value="true" selected>Active Alerts Only</option>
+                  <option value="false">All History (Resolved &amp; Active)</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+              <button class="comic-btn comic-btn-red" onclick="clearAllProtocolAlerts()" style="padding: 7px 14px; gap: 6px;">
+                <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.5;"><polyline points="20 6 9 17 4 12"/></svg>
+                Resolve All
+              </button>
+              <button class="comic-btn comic-btn-yellow" onclick="loadProtocolAlerts()" style="padding: 7px 14px; gap: 6px;">
+                <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.5;"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- Table Wrapper -->
+          <div class="audit-table-wrapper">
+            <table class="audit-table">
+              <thead>
+                <tr>
+                  <th style="width: 90px;">Unit</th>
+                  <th style="width: 100px;">Severity</th>
+                  <th style="width: 70px;">Count</th>
+                  <th style="width: 140px;">First Seen</th>
+                  <th style="width: 140px;">Last Seen</th>
+                  <th>Alert Diagnostic Message</th>
+                  <th style="width: 110px; text-align: center;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="alertsTableBody">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: 30px; color: var(--text-dim);">Checking protocol status...</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -3339,8 +3473,10 @@ rules:
     function onLogsTabOpened() {
       if (currentLogsSubTab === 'audit') {
         loadAuditLogs(auditCurrentOffset);
-      } else {
+      } else if (currentLogsSubTab === 'system') {
         loadSystemLogs();
+      } else if (currentLogsSubTab === 'alerts') {
+        loadProtocolAlerts();
       }
     }
 
@@ -3348,18 +3484,24 @@ rules:
       currentLogsSubTab = sub;
       const btnAudit = document.getElementById('logsSubTabAudit');
       const btnSystem = document.getElementById('logsSubTabSystem');
+      const btnAlerts = document.getElementById('logsSubTabAlerts');
       const panelAudit = document.getElementById('logsPanelAudit');
       const panelSystem = document.getElementById('logsPanelSystem');
+      const panelAlerts = document.getElementById('logsPanelAlerts');
 
       if (btnAudit) btnAudit.classList.toggle('active', sub === 'audit');
       if (btnSystem) btnSystem.classList.toggle('active', sub === 'system');
+      if (btnAlerts) btnAlerts.classList.toggle('active', sub === 'alerts');
       if (panelAudit) panelAudit.style.display = (sub === 'audit' ? 'block' : 'none');
       if (panelSystem) panelSystem.style.display = (sub === 'system' ? 'block' : 'none');
+      if (panelAlerts) panelAlerts.style.display = (sub === 'alerts' ? 'block' : 'none');
 
       if (sub === 'audit') {
         loadAuditLogs(auditCurrentOffset);
-      } else {
+      } else if (sub === 'system') {
         loadSystemLogs();
+      } else if (sub === 'alerts') {
+        loadProtocolAlerts();
       }
     }
 
@@ -3553,12 +3695,148 @@ rules:
         .replace(/'/g, '&#39;');
     }
 
+    async function pollAlertsBadge() {
+      try {
+        const res = await fetch('/api/system/alerts?active_only=true&limit=1');
+        if (!res.ok) return;
+        const data = await res.json();
+        const activeCount = data.active_count || 0;
+
+        const navBadge = document.getElementById('navAlertBadge');
+        const subBadge = document.getElementById('subAlertBadge');
+
+        if (navBadge) {
+          navBadge.textContent = activeCount;
+          navBadge.style.display = activeCount > 0 ? 'inline-flex' : 'none';
+        }
+        if (subBadge) {
+          subBadge.textContent = activeCount;
+          subBadge.style.display = activeCount > 0 ? 'inline-flex' : 'none';
+        }
+      } catch (_) {}
+    }
+
+    async function loadProtocolAlerts() {
+      const activeFilterSel = document.getElementById('alertsFilterActive');
+      const activeOnly = activeFilterSel ? activeFilterSel.value === 'true' : true;
+      const tbody = document.getElementById('alertsTableBody');
+
+      try {
+        const res = await fetch(`/api/system/alerts?active_only=${activeOnly}&limit=100`);
+        if (!res.ok) {
+          if (res.status === 401) {
+            if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--accent-red); font-family: var(--font-ui);">Master authorization required. Unlock panel to view protocol alerts.</td></tr>';
+            return;
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        const items = data.items || [];
+        const activeCount = data.active_count || 0;
+
+        // Update badges
+        const navBadge = document.getElementById('navAlertBadge');
+        const subBadge = document.getElementById('subAlertBadge');
+        if (navBadge) {
+          navBadge.textContent = activeCount;
+          navBadge.style.display = activeCount > 0 ? 'inline-flex' : 'none';
+        }
+        if (subBadge) {
+          subBadge.textContent = activeCount;
+          subBadge.style.display = activeCount > 0 ? 'inline-flex' : 'none';
+        }
+
+        if (items.length === 0) {
+          if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 30px; color: var(--text-dim); font-family: var(--font-ui);">
+              ${activeOnly ? '✓ All protocol daemons healthy. No active alerts.' : 'No protocol alerts recorded in history.'}
+            </td></tr>`;
+          }
+          return;
+        }
+
+        if (tbody) {
+          tbody.innerHTML = items.map(item => {
+            const firstSeenStr = formatAuditTimestamp(item.first_seen);
+            const lastSeenStr = formatAuditTimestamp(item.last_seen);
+            const sevUpper = (item.severity || 'ERROR').toUpperCase();
+            let sevClass = 'alert-sev-error';
+            if (item.resolved) {
+              sevClass = 'alert-sev-resolved';
+            } else if (sevUpper === 'CRITICAL') {
+              sevClass = 'alert-sev-critical';
+            } else if (sevUpper === 'WARNING') {
+              sevClass = 'alert-sev-warning';
+            }
+
+            const sevLabel = item.resolved ? 'RESOLVED' : sevUpper;
+            const actionBtn = item.resolved
+              ? `<span style="font-family: var(--font-tech); font-size: 0.72rem; color: var(--text-dim);">Resolved</span>`
+              : `<button class="comic-btn comic-btn-blue" onclick="resolveProtocolAlert(${item.id})" style="padding: 4px 10px; font-size: 0.68rem;">Resolve</button>`;
+
+            return `
+              <tr>
+                <td><span class="alert-unit-tag">${escapeLogsHtml(item.unit.toUpperCase())}</span></td>
+                <td><span class="alert-sev-badge ${sevClass}">${escapeLogsHtml(sevLabel)}</span></td>
+                <td><span class="alert-count-pill">x${item.count}</span></td>
+                <td class="audit-time">${firstSeenStr}</td>
+                <td class="audit-time">${lastSeenStr}</td>
+                <td style="color: var(--text-main); font-size: 0.80rem; font-family: var(--font-ui);">${escapeLogsHtml(item.message)}</td>
+                <td style="text-align: center;">${actionBtn}</td>
+              </tr>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        console.error('Failed to load protocol alerts:', err);
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--accent-red); font-family: var(--font-ui);">Failed to load protocol alerts: ${escapeLogsHtml(err.message)}</td></tr>`;
+        }
+      }
+    }
+
+    async function resolveProtocolAlert(alertId) {
+      try {
+        const res = await fetch(`/api/system/alerts/${alertId}/resolve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (res.ok) {
+          showToast(`Alert #${alertId} marked as resolved`, 'success');
+          loadProtocolAlerts();
+        } else {
+          showToast('Failed to resolve alert', 'error');
+        }
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function clearAllProtocolAlerts() {
+      try {
+        const res = await fetch('/api/system/alerts/clear', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (res.ok) {
+          showToast('All active protocol alerts resolved', 'success');
+          loadProtocolAlerts();
+        } else {
+          showToast('Failed to clear alerts', 'error');
+        }
+      } catch (err) {
+        showToast(`Error: ${err.message}`, 'error');
+      }
+    }
+
     // Initialize Dashboard
     window.addEventListener('DOMContentLoaded', () => {
       const hostEl = document.getElementById('brandHost');
       if (hostEl) hostEl.textContent = window.location.host || '127.0.0.1';
 
       checkAuthAndInit();
+      pollAlertsBadge();
 
       // Poll telemetry and peers periodically only when authenticated (every 2.5 seconds)
       setInterval(() => {
@@ -3568,6 +3846,14 @@ rules:
           loadPeers();
         }
       }, 2500);
+
+      // Poll protocol alerts badge every 15 seconds
+      setInterval(() => {
+        const authModal = document.getElementById('authModal');
+        if (authModal && !authModal.classList.contains('open')) {
+          pollAlertsBadge();
+        }
+      }, 15000);
     });
 
     window.onclick = function(e) {
