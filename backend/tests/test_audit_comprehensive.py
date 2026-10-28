@@ -304,7 +304,7 @@ async def test_block5_every_api_endpoint_live_calls():
             "[Interface]\n"
             "Address = 10.9.0.1/24\n"
             "ListenPort = 51821\n"
-            "PrivateKey = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n"
+            "PrivateKey = wNlQllCvi0loLufGSs1O11XqA25ZfDATbEKn1RcjqUA=\n"
         )
         r_core_put = await client.put(
             "/api/cores/awg1/config",

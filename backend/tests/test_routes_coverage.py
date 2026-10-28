@@ -185,15 +185,22 @@ async def test_route_cores_management_and_audit():
         assert r_placeholder.status_code == 400
         assert "placeholder detected" in r_placeholder.json()["detail"]
 
-        # e) Reject AWG config with malformed PrivateKey string
+        # e) Reject AWG config with degenerate/placeholder PrivateKey (all 'a's)
+        r_degenerate = await client.put(
+            "/api/cores/awg1/config",
+            json={"config_text": "[Interface]\nListenPort = 51821\nPrivateKey = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n"}
+        )
+        assert r_degenerate.status_code == 400
+
+        # f) Reject AWG config with malformed PrivateKey string
         r_malformed_key = await client.put(
             "/api/cores/awg1/config",
             json={"config_text": "[Interface]\nListenPort = 51821\nPrivateKey = not_a_real_base64_key\n"}
         )
         assert r_malformed_key.status_code == 400
-        assert "must be a valid base64-encoded key" in r_malformed_key.json()["detail"]
+        assert "must be a valid" in r_malformed_key.json()["detail"]
 
-        # f) Reject Hysteria config with invalid YAML syntax
+        # g) Reject Hysteria config with invalid YAML syntax
         r_bad_yaml = await client.put(
             "/api/cores/hy2/config",
             json={"config_text": "listen: :443\nauth: [unclosed list\n"}
@@ -201,7 +208,7 @@ async def test_route_cores_management_and_audit():
         assert r_bad_yaml.status_code == 400
         assert "Invalid YAML syntax" in r_bad_yaml.json()["detail"]
 
-        # g) Reject Hysteria config missing auth section
+        # h) Reject Hysteria config missing auth section
         r_no_auth = await client.put(
             "/api/cores/hy2/config",
             json={"config_text": "listen: :443\ntls:\n  cert: test.crt\n"}
@@ -215,7 +222,7 @@ async def test_route_cores_management_and_audit():
             "[Interface]\n"
             "Address = 10.9.0.1/24\n"
             "ListenPort = 51821\n"
-            "PrivateKey = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n"
+            "PrivateKey = wNlQllCvi0loLufGSs1O11XqA25ZfDATbEKn1RcjqUA=\n"
             "Jc = 4\n"
             "Jmin = 10\n"
             "Jmax = 50\n"
@@ -239,7 +246,7 @@ async def test_route_cores_management_and_audit():
         r_cfg = await client.get("/api/cores/awg1/config")
         assert r_cfg.status_code == 200
         assert "content" in r_cfg.json()
-        assert "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=" in r_cfg.json()["content"]
+        assert "wNlQllCvi0loLufGSs1O11XqA25ZfDATbEKn1RcjqUA=" in r_cfg.json()["content"]
 
         # Valid PUT for Hysteria 2
         valid_hy2_cfg = (
@@ -455,11 +462,15 @@ async def test_route_subscription_multi_protocol_formats():
             assert "text/html" in r_html.headers["content-type"]
             assert "Аудит Клиент 01" in r_html.text
 
-            # Format: Conf
+            # Format: Conf (BUG-003 and BUG-005)
             r_conf = await client.get(f"/sub/{token}?format=conf&version=3.1")
             assert r_conf.status_code == 200
             assert "text/plain" in r_conf.headers["content-type"]
             assert "[Interface]" in r_conf.text
+            assert "MTU = 1280" in r_conf.text
+            disp_conf = r_conf.headers["content-disposition"]
+            assert "attachment;" in disp_conf
+            assert "_awg31.conf" in disp_conf
 
             # Check RFC 5987 safe filename header
             disp = r_yaml.headers["content-disposition"]

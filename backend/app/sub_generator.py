@@ -20,6 +20,7 @@ def generate_awg_client_conf(peer: Peer, version: str = "3.1", server_ip: str = 
 Address = {peer.awg0_ip}/32
 PrivateKey = {peer.awg0_privkey}
 DNS = 10.8.0.1, 1.1.1.1
+MTU = 1280
 Jc = {p['jc']}
 Jmin = {p['jmin']}
 Jmax = {p['jmax']}
@@ -52,6 +53,7 @@ PersistentKeepalive = 25
 Address = {peer.awg1_ip}/32
 PrivateKey = {peer.awg1_privkey}
 DNS = 10.9.0.1, 1.1.1.1
+MTU = 1280
 Jc = {p['jc']}
 Jmin = {p['jmin']}
 Jmax = {p['jmax']}
@@ -380,7 +382,11 @@ def generate_mobile_landing_html(peer: Peer, subscription_url: str) -> str:
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{
       font-family: 'Komika Text', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #f8f6f0;
+      background-color: #f8f6f0;
+      background-image: 
+        radial-gradient(rgba(20, 20, 22, 0.14) 1.2px, transparent 1.2px),
+        linear-gradient(to right, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+      background-size: 8px 8px, 16px 16px;
       color: #141416;
       display: flex;
       justify-content: center;
@@ -756,7 +762,7 @@ def generate_mobile_landing_html(peer: Peer, subscription_url: str) -> str:
     <div class="btn-grid">
       <div class="btn-col btn-col-main">
         <a href="clash://install-config?url={subscription_url}" class="comic-btn btn-clash" title="Import to Clash / Mihomo">
-          <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58.42 4.23-.33 5.4 1.25 1.5 1.91 3.4 1.91 5.6 0 5-4.5 8-10 8s-10-3-10-8c0-2.2.66-4.1 1.91-5.6-.75-1.17-1.73-4.82-.33-5.4 1.39-.58 4.64.26 6.42 2.26.65-.17 1.33-.26 2-.26z"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/></svg>
           <span>Import to Clash / Mihomo</span>
         </a>
         <a href="sing-box://import-remote-profile?url={singbox_target}" onclick="handleSingboxClick(event, '{singbox_raw}')" class="comic-btn btn-singbox" title="Import Hy2 to Sing-box">
@@ -805,7 +811,7 @@ def generate_mobile_landing_html(peer: Peer, subscription_url: str) -> str:
       </div>
       <div class="mini-modal-body">
         <div class="mini-modal-hint">Choose protocol version for your client:</div>
-        <a href="{subscription_url}?format=conf&version=3.1" download="{clean_name}-awg3.1.conf" class="comic-btn btn-modal-opt btn-modal-v3" onclick="closeAwgPicker()">
+        <a href="{subscription_url}?format=conf&version=3.1" download="{clean_name}_awg31.conf" class="comic-btn btn-modal-opt btn-modal-v3" onclick="closeAwgPicker()">
           <div class="opt-badge">v3.1</div>
           <div class="opt-info">
             <div class="opt-title">AmneziaWG 3.1</div>
@@ -813,7 +819,7 @@ def generate_mobile_landing_html(peer: Peer, subscription_url: str) -> str:
           </div>
           <svg viewBox="0 0 24 24" class="opt-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         </a>
-        <a href="{subscription_url}?format=conf&version=2.0" download="{clean_name}-awg2.0.conf" class="comic-btn btn-modal-opt btn-modal-v2" onclick="closeAwgPicker()">
+        <a href="{subscription_url}?format=conf&version=2.0" download="{clean_name}_awg20.conf" class="comic-btn btn-modal-opt btn-modal-v2" onclick="closeAwgPicker()">
           <div class="opt-badge">v2.0</div>
           <div class="opt-info">
             <div class="opt-title">AmneziaWG 2.0</div>

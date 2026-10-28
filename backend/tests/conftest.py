@@ -42,6 +42,7 @@ def prevent_accidental_daemon_restart(monkeypatch):
 
     # 2. Mock all core_manager and router live reload/sync functions
     monkeypatch.setattr(app.core_manager, "is_linux_and_root", lambda: False)
+    monkeypatch.setattr(app.routers.cores, "is_linux_and_root", lambda: False)
     monkeypatch.setattr(app.core_manager, "reload_awg_service", lambda interface: True)
     monkeypatch.setattr(app.core_manager, "restart_daemon_service", lambda service_name: True)
     monkeypatch.setattr(app.routers.cores, "restart_daemon_service", lambda service_name: True)
@@ -50,16 +51,28 @@ def prevent_accidental_daemon_restart(monkeypatch):
     monkeypatch.setattr(app.core_manager, "live_remove_awg_peer", lambda *a, **k: True)
     monkeypatch.setattr(app.routers.peers, "live_remove_awg_peer", lambda *a, **k: True)
 
-@pytest.fixture(autouse=True)
-def clean_test_state():
-    FAILED_ATTEMPTS.clear()
+def _cleanup_test_peers():
     try:
         if settings.DATABASE_PATH.exists():
             con = sqlite3.connect(str(settings.DATABASE_PATH))
-            con.execute("DELETE FROM peers WHERE name LIKE 'CONCURRENT_%' OR name LIKE 'TEST_%' OR name LIKE 'Robert%'")
+            con.execute(
+                "DELETE FROM peers WHERE "
+                "name LIKE 'CONCURRENT_%' OR name LIKE 'concurrent_%' OR "
+                "name LIKE 'TEST_%' OR name LIKE 'test_%' OR "
+                "name LIKE 'SMOKE_%' OR name LIKE 'smoke_%' OR "
+                "name LIKE 'E2E_%' OR name LIKE 'e2e_%' OR "
+                "name LIKE 'Robert%' OR name LIKE 'robert%' OR "
+                "name LIKE 'Аудит%'"
+            )
             con.commit()
             con.close()
     except Exception:
         pass
+
+@pytest.fixture(autouse=True)
+def clean_test_state():
+    FAILED_ATTEMPTS.clear()
+    _cleanup_test_peers()
     yield
     FAILED_ATTEMPTS.clear()
+    _cleanup_test_peers()

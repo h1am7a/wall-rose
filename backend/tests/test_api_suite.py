@@ -172,7 +172,7 @@ async def test_cores_and_config_editor():
             "[Interface]\n"
             "Address = 10.9.0.1/24\n"
             "ListenPort = 48123\n"
-            "PrivateKey = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\n"
+            "PrivateKey = wNlQllCvi0loLufGSs1O11XqA25ZfDATbEKn1RcjqUA=\n"
         )
         res_upd = await client.put(
             "/api/cores/awg1/config",

@@ -141,9 +141,13 @@ async def get_subscription(
             headers=dict(response.headers)
         )
     elif target_format == "conf":
+        ver_norm = (version or "3.1").strip()
+        v_tag = f"awg{ver_norm.replace('.', '')}"
+        utf8_encoded_conf = urllib.parse.quote(f"{peer.name}_{v_tag}.conf")
+        response.headers["content-disposition"] = f'attachment; filename="{ascii_clean}_{v_tag}.conf"; filename*=UTF-8\'\'{utf8_encoded_conf}'
         response.headers["Content-Type"] = "text/plain; charset=utf-8"
         return Response(
-            content=generate_awg_client_conf(peer, version=version or "3.1"),
+            content=generate_awg_client_conf(peer, version=ver_norm),
             media_type="text/plain",
             headers=dict(response.headers)
         )

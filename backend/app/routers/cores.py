@@ -1,6 +1,7 @@
 import os
 import re
 import yaml
+import base64
 import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -30,6 +31,10 @@ PLACEHOLDER_KEY_PATTERNS = [
     "your_private_key",
     "none",
     "null",
+    "aaaa",
+    "0000",
+    "1111",
+    "xxxx",
 ]
 
 def validate_core_config(core_id: str, config_text: str) -> None:
@@ -89,6 +94,18 @@ def validate_core_config(core_id: str, config_text: str) -> None:
                 detail=f"Invalid PrivateKey format for {core_id}: must be a valid base64-encoded key (32-64 chars)"
             )
 
+        try:
+            key_bytes = base64.b64decode(raw_key, validate=True)
+            if len(key_bytes) != 32:
+                raise ValueError(f"Decoded key length is {len(key_bytes)} bytes, expected 32")
+            if len(set(key_bytes)) <= 2:
+                raise ValueError("Degenerate key: low entropy / placeholder detected")
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid PrivateKey format for {core_id}: must be a valid 32-byte base64-encoded key ({e})"
+            )
+
     elif core_id == "hy2":
         try:
             parsed = yaml.safe_load(clean_text)
@@ -115,6 +132,16 @@ def validate_core_config(core_id: str, config_text: str) -> None:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Hysteria 2 configuration is missing the required 'listen' directive"
             )
+
+        if "obfs" in parsed and isinstance(parsed["obfs"], dict):
+            obfs = parsed["obfs"]
+            if obfs.get("type") == "gecko":
+                gecko = obfs.get("gecko")
+                if not isinstance(gecko, dict) or not gecko.get("password"):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Hysteria 2 gecko obfuscation requires 'obfs.gecko.password'"
+                    )
 
 router = APIRouter(prefix="/api/cores", tags=["Protocol Engines"], dependencies=[Depends(require_admin)])
 

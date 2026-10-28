@@ -268,10 +268,12 @@ def test_awg_conf_structure():
     assert "[Peer]" in conf2
     assert "Address = 10.8.0.10/32" in conf2
     assert "Endpoint = 203.0.113.1:" in conf2
+    assert "MTU = 1280" in conf2
 
     conf3 = generate_awg_client_conf(peer, version="3.1", server_ip="203.0.113.1")
     assert "Address = 10.9.0.10/32" in conf3
     assert "Endpoint = 203.0.113.1:" in conf3
+    assert "MTU = 1280" in conf3
     assert "ContentPaddingAddition" in conf3
     assert "RekeyAfterTime" in conf3
     assert "RekeyTimeout" in conf3

@@ -66,13 +66,19 @@ def test_install_config_generation_and_sub_matching():
             raise RuntimeError("No free UDP port found in 40000-60000 range")
 
         def gen_collision_free_s():
+            # AWG 2.0 (awg0): S1/S2: 15..150, S3: 0..64, S4 (transport padding): 10..20 (MTU budget safe)
             while True:
-                s1 = secrets.randbelow(181) + 20
-                s2 = secrets.randbelow(181) + 20
-                s3 = secrets.randbelow(181) + 20
-                s4 = secrets.randbelow(181) + 20
+                s1 = secrets.randbelow(136) + 15
+                s2 = secrets.randbelow(136) + 15
+                s3 = secrets.randbelow(65)
+                s4 = secrets.randbelow(11) + 10
                 if len({148 + s1, 92 + s2, 64 + s3, 32 + s4}) == 4:
                     return str(s1), str(s2), str(s3), str(s4)
+
+        def gen_v3_s():
+            # AWG 3.1 (awg1): RandomTrailers=on requires S1 = S2 = S3 = S4 (single value >= 12, safe 12..64)
+            s = str(secrets.randbelow(53) + 12)
+            return s, s, s, s
 
         # AWG0 (v2) - clean install always generates fresh keys and params
         awg0_priv, awg0_pub = gen_x25519_keypair()
@@ -109,11 +115,11 @@ H4 = {awg0_h4}
         awg1_jc = str(secrets.randbelow(9) + 4)          # 4..12 (Amnezia recommended)
         awg1_jmin = str(secrets.randbelow(21) + 10)       # 10..30
         awg1_jmax = str(secrets.randbelow(51) + 40)       # 40..90 (< 1280 MTU)
-        awg1_s1, awg1_s2, awg1_s3, awg1_s4 = gen_collision_free_s()
-        awg1_h1 = str(secrets.randbelow(1000000000) + 1000000000)
-        awg1_h2 = str(secrets.randbelow(1000000000) + 1000000000)
-        awg1_h3 = str(secrets.randbelow(1000000000) + 1000000000)
-        awg1_h4 = str(secrets.randbelow(1000000000) + 1000000000)
+        awg1_s1, awg1_s2, awg1_s3, awg1_s4 = gen_v3_s()
+        awg1_h1 = "1"
+        awg1_h2 = "2"
+        awg1_h3 = "3"
+        awg1_h4 = "4"
         awg1_hpk = base64.b64encode(secrets.token_bytes(32)).decode("ascii")
         with open(awg1_conf, "w", encoding="utf-8") as f:
             f.write(f"""[Interface]
@@ -156,8 +162,6 @@ obfs:
   type: gecko
   gecko:
     password: {gecko_key}
-    minPacketSize: 512
-    maxPacketSize: 1200
 auth:
   type: http
   http:
@@ -241,6 +245,9 @@ trafficStats:
         assert awg0_params["port"] != awg1_params["port"]
         assert 4 <= awg0_params["jc"] <= 12
         assert 4 <= awg1_params["jc"] <= 12
+        assert 10 <= awg0_params["s4"] <= 20, f"AWG0 S4 must be bounded to 10..20, got {awg0_params['s4']}"
+        assert awg1_params["s1"] == awg1_params["s2"] == awg1_params["s3"] == awg1_params["s4"], "AWG1 S1-S4 must be identical"
+        assert str(awg1_params["h1"]) == "1" and str(awg1_params["h2"]) == "2" and str(awg1_params["h3"]) == "3" and str(awg1_params["h4"]) == "4", "AWG1 H1-H4 must be 1,2,3,4"
         assert awg1_proxy["port"] == awg1_params["port"]
         assert awg1_proxy["amnezia-wg-option"]["jc"] == awg1_params["jc"]
         assert awg1_proxy["amnezia-wg-option"]["header-protection-key"] == awg1_params["header_protection_key"]

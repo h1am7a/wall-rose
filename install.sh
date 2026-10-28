@@ -323,13 +323,19 @@ def get_free_udp_port(exclude_ports=None):
     raise RuntimeError("No free UDP port found in 40000-60000 range")
 
 def gen_collision_free_s():
+    # AWG 2.0 (awg0): S1/S2: 15..150, S3: 0..64, S4 (transport padding): 10..20 (MTU budget safe)
     while True:
-        s1 = secrets.randbelow(181) + 20
-        s2 = secrets.randbelow(181) + 20
-        s3 = secrets.randbelow(181) + 20
-        s4 = secrets.randbelow(181) + 20
+        s1 = secrets.randbelow(136) + 15
+        s2 = secrets.randbelow(136) + 15
+        s3 = secrets.randbelow(65)
+        s4 = secrets.randbelow(11) + 10
         if len({148 + s1, 92 + s2, 64 + s3, 32 + s4}) == 4:
             return str(s1), str(s2), str(s3), str(s4)
+
+def gen_v3_s():
+    # AWG 3.1 (awg1): RandomTrailers=on requires S1 = S2 = S3 = S4 (single value >= 12, safe 12..64)
+    s = str(secrets.randbelow(53) + 12)
+    return s, s, s, s
 
 # --- AWG0 (v2) Configuration ---
 awg0_conf = "/etc/amnezia/amneziawg/awg0-userspace.conf"
@@ -370,11 +376,11 @@ awg1_port = get_free_udp_port(exclude_ports={int(awg0_port)})
 awg1_jc = str(secrets.randbelow(9) + 4)          # 4..12 (Amnezia recommended)
 awg1_jmin = str(secrets.randbelow(21) + 10)       # 10..30
 awg1_jmax = str(secrets.randbelow(51) + 40)       # 40..90 (< 1280 MTU)
-awg1_s1, awg1_s2, awg1_s3, awg1_s4 = gen_collision_free_s()
-awg1_h1 = str(secrets.randbelow(1000000000) + 1000000000)
-awg1_h2 = str(secrets.randbelow(1000000000) + 1000000000)
-awg1_h3 = str(secrets.randbelow(1000000000) + 1000000000)
-awg1_h4 = str(secrets.randbelow(1000000000) + 1000000000)
+awg1_s1, awg1_s2, awg1_s3, awg1_s4 = gen_v3_s()
+awg1_h1 = "1"
+awg1_h2 = "2"
+awg1_h3 = "3"
+awg1_h4 = "4"
 awg1_hpk = base64.b64encode(secrets.token_bytes(32)).decode("ascii")
 awg1_cpa = "32-128"
 
@@ -437,8 +443,6 @@ obfs:
   type: gecko
   gecko:
     password: {gecko_key}
-    minPacketSize: 512
-    maxPacketSize: 1200
 
 auth:
   type: http
