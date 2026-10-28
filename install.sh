@@ -352,9 +352,9 @@ if "privatekey" in awg0_kv and len(awg0_kv["privatekey"]) >= 32:
 else:
     awg0_priv, awg0_pub = gen_x25519_keypair()
     awg0_port = os.environ.get("AWG0_PORT") or get_free_udp_port()
-    awg0_jc = str(secrets.randbelow(7) + 2)          # 2..8
+    awg0_jc = str(secrets.randbelow(9) + 4)          # 4..12 (Amnezia recommended)
     awg0_jmin = str(secrets.randbelow(21) + 10)       # 10..30
-    awg0_jmax = str(secrets.randbelow(51) + 40)       # 40..90
+    awg0_jmax = str(secrets.randbelow(51) + 40)       # 40..90 (< 1280 MTU)
     awg0_s1, awg0_s2, awg0_s3, awg0_s4 = gen_collision_free_s()
     awg0_h1 = str(secrets.randbelow(1000000000) + 1000000000)
     awg0_h2 = str(secrets.randbelow(1000000000) + 1000000000)
@@ -404,9 +404,9 @@ if "privatekey" in awg1_kv and len(awg1_kv["privatekey"]) >= 32:
 else:
     awg1_priv, awg1_pub = gen_x25519_keypair()
     awg1_port = os.environ.get("AWG1_PORT") or get_free_udp_port()
-    awg1_jc = str(secrets.randbelow(7) + 2)          # 2..8
+    awg1_jc = str(secrets.randbelow(9) + 4)          # 4..12 (Amnezia recommended)
     awg1_jmin = str(secrets.randbelow(21) + 10)       # 10..30
-    awg1_jmax = str(secrets.randbelow(51) + 40)       # 40..90
+    awg1_jmax = str(secrets.randbelow(51) + 40)       # 40..90 (< 1280 MTU)
     awg1_s1, awg1_s2, awg1_s3, awg1_s4 = gen_collision_free_s()
     awg1_h1 = str(secrets.randbelow(1000000000) + 1000000000)
     awg1_h2 = str(secrets.randbelow(1000000000) + 1000000000)
