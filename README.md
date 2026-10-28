@@ -7,7 +7,7 @@
 <p align="center">
   <a href="#license"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="License MIT"></a>
   <a href="#release"><img src="https://img.shields.io/badge/Version-v1.0.0-yellow.svg?style=flat-square" alt="Version v1.0.0"></a>
-  <a href="#tests"><img src="https://img.shields.io/badge/Tests-39%2F39%20Passed-brightgreen.svg?style=flat-square" alt="Tests"></a>
+  <a href="#tests"><img src="https://img.shields.io/badge/Tests-55%2F55%20Passed-brightgreen.svg?style=flat-square" alt="Tests"></a>
 </p>
 
 ---
@@ -152,6 +152,8 @@ Interactive OpenAPI documentation is live at `/docs` (Swagger UI) and `/redoc` (
 | `PUT` | `/api/cores/{id}/config` | Admin | Update raw daemon configuration file | `{"ok": true, "message": "Configuration saved"}` |
 | `POST` | `/api/cores/{id}/restart` | Admin | Gracefully restart daemon via systemd | `{"ok": true, "message": "awg1 restarted"}` |
 | `GET` | `/api/telemetry` | Admin | Real-time CPU, RAM, network throughput, connected peers | `{"cpu_percent": 3.2, "ram_percent": 14.1, ...}` |
+| `GET` | `/api/audit/logs` | Admin | Query administrative audit trail (action/status filters, pagination) | `{"ok": true, "total": 42, "items": [...]}` |
+| `GET` | `/api/system/logs` | Admin | Query sanitized journalctl logs (`panel`, `hy2`, `awg0`, `awg1`) | `{"ok": true, "service": "panel", "logs": [...]}` |
 | `POST` | `/api/v1/hysteria/auth` | Internal | High-speed HTTP auth callback for Hysteria daemon (<0.2 ms) | `{"ok": true, "id": "user_4a"}` |
 | `POST` | `/api/v1/hysteria/sync-traffic` | Admin | Trigger unified traffic aggregator pass (single `?clear=1` owner) | `{"ok": true, "message": "Aggregated..."}` |
 | `GET` | `/sub/{token}` | Public | Smart subscription (User-Agent detection: YAML, JSON, HTML) | YAML or JSON configuration profile |
@@ -160,14 +162,19 @@ Interactive OpenAPI documentation is live at `/docs` (Swagger UI) and `/redoc` (
 
 ---
 
-## Security Architecture
+## Security & Zero-Logs Privacy Policy
 
+- **Zero-Logs Traffic Policy:** Wall Rose does not log, inspect, store, or forward user browsing history, destination IPs, DNS queries, or transmitted payload data. Unbound DoT and protocol daemons run with minimal logging.
+- **Uvicorn `--no-access-log` Hardening:** The panel web daemon runs with `--no-access-log` under systemd. Subscription access tokens (`/sub/<token>`) are never logged in plaintext access logs or journald buffers.
+- **Journald Strict Retention Limits:** Host journald limits are strictly capped (`SystemMaxUse=50M`, `RuntimeMaxUse=20M`) to prevent disk bloat and forensic persistence.
+- **Live In-Memory Sanitization:** The `/api/system/logs` endpoint passes all journal entries through regex sanitizers that redact `PrivateKey`, `PresharedKey`, `HeaderProtectionKey`, `hy2_pass`, bearer tokens, and `/sub/<token>` paths before delivery to the browser.
+- **SQLite Ring-Buffer Pruning:** The administrative audit trail is bounded to a maximum of 1,000 events with automatic FIFO pruning.
 - **Timing-Attack Immune Authentication:** Master password verification executes via `hmac.compare_digest()` constant-time comparison in `app/security.py`.
 - **Anti-Bruteforce Lockout:** More than 5 failed authentication attempts within 5 minutes results in immediate HTTP 429 lockout per client IP.
 - **HttpOnly & Secure Session Isolation:** Session tokens are delivered via `HttpOnly`, `SameSite=Lax` cookies with `wr_sess_` high-entropy random identifiers.
 - **Single Owner of Hysteria Traffic Counter:** Exactly one reader processes `/traffic?clear=1` under `get_aggregator_lock()`, eliminating delta counter loss.
 - **Path Traversal & Archive Bomb Defense:** Backup restoration validates normalized paths, rejects `..` components, absolute paths, and limits archive size to 50 MB (`HTTP 413 Content Too Large`).
-- **Unicode Content-Disposition:** Client subscription headers follow RFC 5987 / RFC 6266 with URL-encoding, preventing Latin-1 encoding crashes on Russian/Unicode device names.
+- **Unicode Content-Disposition:** Client subscription and `.conf` file headers follow RFC 5987 / RFC 6266 with URL-encoding, preventing Latin-1 encoding crashes on Russian/Unicode device names.
 - **CSPRNG Entropy:** All WireGuard keys, PSKs, HeaderProtectionKeys, Gecko passwords, and master credentials are generated via Python `secrets`. Zero hardcoded credentials exist in source code.
 
 ---
@@ -214,9 +221,11 @@ python3 -m venv venv
 source venv/bin/activate  # On Windows: .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-# Run complete test suite (39 comprehensive tests)
-$env:PYTHONPATH="."
-pytest -v
+# Run complete test suite (55 comprehensive tests)
+# Linux / macOS:
+PYTHONPATH=. pytest tests/ -v
+# Windows PowerShell:
+$env:PYTHONPATH="."; pytest tests/ -v
 
 # Run local development server
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload

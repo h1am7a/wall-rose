@@ -1,8 +1,12 @@
 from typing import AsyncGenerator
+import logging
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.exc import OperationalError
 
 from app.config import settings
+
+logger = logging.getLogger("wallrose.database")
 
 # Async SQLite engine
 engine = create_async_engine(
@@ -52,12 +56,14 @@ async def init_db():
         # Non-destructive schema migration for audit_logs
         try:
             await conn.exec_driver_sql("ALTER TABLE audit_logs ADD COLUMN ip_address VARCHAR(45);")
-        except Exception:
-            pass
+        except OperationalError as e:
+            if "duplicate column" not in str(e).lower():
+                logger.warning(f"Notice applying ip_address column migration: {e}")
         try:
             await conn.exec_driver_sql("ALTER TABLE audit_logs ADD COLUMN status VARCHAR(16) DEFAULT 'SUCCESS';")
-        except Exception:
-            pass
+        except OperationalError as e:
+            if "duplicate column" not in str(e).lower():
+                logger.warning(f"Notice applying status column migration: {e}")
 
     # Seed default ProtocolCores if not present
     async with AsyncSessionLocal() as session:

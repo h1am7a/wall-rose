@@ -3,6 +3,7 @@ import io
 import os
 import tarfile
 import tempfile
+import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +11,8 @@ from app.config import settings
 from app.database import get_db, engine
 from app.schemas import ApiResponse
 from app.security import require_admin
+
+logger = logging.getLogger("wallrose.backup")
 
 MAX_BACKUP_SIZE = 50 * 1024 * 1024  # 50 MB safety limit
 
@@ -115,8 +118,8 @@ async def restore_backup(
                 if os.path.exists(stale_sidecar):
                     try:
                         os.remove(stale_sidecar)
-                    except OSError:
-                        pass
+                    except OSError as err:
+                        logger.warning(f"Could not remove stale sidecar {stale_sidecar}: {err}")
             shutil.copy2(extracted_db, settings.DATABASE_PATH)
             return ApiResponse(ok=True, message="Database restored successfully. Please restart the service.")
         else:

@@ -1,5 +1,7 @@
 import asyncio
 import secrets
+import re
+import urllib.parse
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -328,10 +330,13 @@ async def download_awg_conf(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
 
     conf_content = generate_awg_client_conf(peer, version=version)
-    filename = f"{peer.name}_awg{version.replace('.', '')}.conf"
+    v_tag = f"awg{version.replace('.', '')}"
+    ascii_clean = re.sub(r'[^\x20-\x7E]', '_', peer.name).strip() or "device"
+    utf8_encoded = urllib.parse.quote(f"{peer.name}_{v_tag}.conf")
+    content_disp = f'attachment; filename="{ascii_clean}_{v_tag}.conf"; filename*=UTF-8\'\'{utf8_encoded}'
     
     return Response(
         content=conf_content,
         media_type="text/plain",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        headers={"Content-Disposition": content_disp}
     )

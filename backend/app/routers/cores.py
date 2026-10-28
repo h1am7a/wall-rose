@@ -1,4 +1,5 @@
 import os
+import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,9 +13,11 @@ from app.schemas import (
     ProtocolCoreConfigUpdate,
     ApiResponse,
 )
-from app.core_manager import check_daemon_status, restart_daemon_service
+from app.core_manager import check_daemon_status, restart_daemon_service, is_linux_and_root
 from app.security import require_admin
 from app.audit import log_admin_action
+
+logger = logging.getLogger("wallrose.cores")
 
 router = APIRouter(prefix="/api/cores", tags=["Protocol Engines"], dependencies=[Depends(require_admin)])
 
@@ -172,9 +175,15 @@ async def update_core_config(
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             f.write(payload.config_text)
-    except Exception as e:
-        # Fallback if writing to restricted system directory in non-root dev mode
-        pass
+    except OSError as e:
+        if is_linux_and_root():
+            logger.error(f"Failed to write configuration file {path}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to write configuration file: {e}"
+            )
+        # Non-root mock development fallback
+        logger.warning(f"Development notice: cannot write to system path {path}: {e}")
 
     client_ip = request.client.host if request.client else "unknown"
     await log_admin_action(
