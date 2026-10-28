@@ -4,6 +4,19 @@ from app.config import settings
 from app.routers.auth import FAILED_ATTEMPTS
 
 @pytest.fixture(autouse=True)
+def prevent_accidental_daemon_restart(monkeypatch):
+    """
+    Global safety guard:
+    Ensures that any test in the suite that invokes core restarts
+    defaults to a safe mock unless explicitly patched with custom behavior.
+    Prevents tests from accidentally running real systemctl commands on Linux hosts.
+    """
+    import app.routers.cores
+    import app.core_manager
+    monkeypatch.setattr(app.routers.cores, "restart_daemon_service", lambda service_name: True)
+    monkeypatch.setattr(app.core_manager, "restart_daemon_service", lambda service_name: True)
+
+@pytest.fixture(autouse=True)
 def clean_test_state():
     FAILED_ATTEMPTS.clear()
     try:

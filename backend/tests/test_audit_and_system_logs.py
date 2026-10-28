@@ -1,5 +1,6 @@
 import pytest
 from pathlib import Path
+from unittest.mock import patch
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select, func
 
@@ -129,7 +130,7 @@ async def test_peers_audit_trail():
 
 @pytest.mark.asyncio
 async def test_cores_audit_trail():
-    """Verify core restart and config update actions are recorded in audit."""
+    """Verify core restart actions are recorded in audit without touching live systemctl."""
     await init_db()
 
     transport = ASGITransport(app=app)
@@ -138,15 +139,37 @@ async def test_cores_audit_trail():
         token = login_res.json()["token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Restart core awg0
-        restart_res = await ac.post("/api/cores/awg0/restart", headers=headers)
-        assert restart_res.status_code == 200
+        # 1. Successful restart (mocked to prevent touching live systemd daemons)
+        with patch("app.routers.cores.restart_daemon_service", return_value=True) as mock_restart:
+            restart_res = await ac.post("/api/cores/awg0/restart", headers=headers)
+            assert restart_res.status_code == 200
+            mock_restart.assert_called_once_with("awg0-go")
 
         async with AsyncSessionLocal() as session:
-            stmt = select(AuditLog).where(AuditLog.action == "CORE_RESTART").order_by(AuditLog.id.desc())
+            stmt = select(AuditLog).where(
+                AuditLog.action == "CORE_RESTART",
+                AuditLog.status == "SUCCESS"
+            ).order_by(AuditLog.id.desc())
             entry = (await session.execute(stmt)).scalars().first()
             assert entry is not None
-            assert "awg0" in entry.detail
+            assert "awg0-go" in entry.detail or "awg0" in entry.detail
+            assert entry.status == "SUCCESS"
+
+        # 2. Failed restart (mocked) -> raises 500 and records FAILED in audit
+        with patch("app.routers.cores.restart_daemon_service", return_value=False) as mock_restart_fail:
+            restart_fail_res = await ac.post("/api/cores/awg0/restart", headers=headers)
+            assert restart_fail_res.status_code == 500
+            mock_restart_fail.assert_called_once_with("awg0-go")
+
+        async with AsyncSessionLocal() as session:
+            stmt = select(AuditLog).where(
+                AuditLog.action == "CORE_RESTART",
+                AuditLog.status == "FAILED"
+            ).order_by(AuditLog.id.desc())
+            entry = (await session.execute(stmt)).scalars().first()
+            assert entry is not None
+            assert "awg0-go" in entry.detail or "awg0" in entry.detail
+            assert entry.status == "FAILED"
 
 @pytest.mark.asyncio
 async def test_audit_api_query_and_filters():

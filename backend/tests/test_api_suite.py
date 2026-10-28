@@ -168,17 +168,22 @@ async def test_cores_and_config_editor():
         assert "content" in cfg_data
 
         # 3. Update config
-        res_upd = await client.put(
-            "/api/cores/awg1/config",
-            json={"config_text": "# Updated test config content\n[Interface]\nListenPort = 48123\n"}
-        )
-        assert res_upd.status_code == 200
-        assert res_upd.json()["ok"] is True
+        orig_content = cfg_data.get("content", "")
+        try:
+            res_upd = await client.put(
+                "/api/cores/awg1/config",
+                json={"config_text": "# Updated test config content\n[Interface]\nListenPort = 48123\n"}
+            )
+            assert res_upd.status_code == 200
+            assert res_upd.json()["ok"] is True
 
-        # 4. Restart core
-        res_restart = await client.post("/api/cores/awg1/restart")
-        assert res_restart.status_code == 200
-        assert res_restart.json()["ok"] is True
+            # 4. Restart core
+            res_restart = await client.post("/api/cores/awg1/restart")
+            assert res_restart.status_code == 200
+            assert res_restart.json()["ok"] is True
+        finally:
+            if orig_content:
+                await client.put("/api/cores/awg1/config", json={"config_text": orig_content})
 
 @pytest.mark.asyncio
 async def test_telemetry_accuracy():

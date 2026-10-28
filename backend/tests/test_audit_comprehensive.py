@@ -304,15 +304,20 @@ async def test_block5_every_api_endpoint_live_calls():
         assert r_core_cfg.status_code == 200
         assert "content" in r_core_cfg.json()
 
-        r_core_put = await client.put(
-            "/api/cores/awg1/config",
-            json={"config_text": "# Updated test config"},
-            headers=headers
-        )
-        assert r_core_put.status_code == 200
+        orig_core_cfg = r_core_cfg.json().get("content", "")
+        try:
+            r_core_put = await client.put(
+                "/api/cores/awg1/config",
+                json={"config_text": "# Updated test config"},
+                headers=headers
+            )
+            assert r_core_put.status_code == 200
 
-        r_core_restart = await client.post("/api/cores/awg1/restart", headers=headers)
-        assert r_core_restart.status_code == 200
+            r_core_restart = await client.post("/api/cores/awg1/restart", headers=headers)
+            assert r_core_restart.status_code == 200
+        finally:
+            if orig_core_cfg:
+                await client.put("/api/cores/awg1/config", json={"config_text": orig_core_cfg}, headers=headers)
 
         # Peers endpoints
         r_create = await client.post(
