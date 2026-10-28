@@ -366,6 +366,18 @@ async def test_traffic_aggregator_delta_and_baseline(monkeypatch):
             assert p.transfer_tx == 350  # 200 + 150
             assert p.last_handshake == 1700000020
 
+            # 4. Pass 4: Test Hysteria 2 dict traffic stats format (Bug #21)
+            mock_resp.json.return_value = {"agg_user_1": {"tx": 40, "rx": 80}}
+            fake_metrics["agg_pub_1"] = {
+                "transfer_rx": 300,
+                "transfer_tx": 150,
+                "latest_handshake": 1700000020
+            }
+            await aggregate_traffic_once(session)
+            await session.refresh(p)
+            assert p.transfer_rx == 980   # 900 + 80
+            assert p.transfer_tx == 390   # 350 + 40
+
         finally:
             await session.execute(delete(TrafficBaseline).where(TrafficBaseline.pubkey == "agg_pub_1"))
             await session.execute(delete(Peer).where(Peer.name == "AGG_TEST_PEER"))

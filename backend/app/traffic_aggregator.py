@@ -46,20 +46,33 @@ async def _do_aggregate(db: AsyncSession) -> Dict[str, Any]:
                 if resp.status_code == 200:
                     hy2_data: Dict[str, Any] = resp.json()
                     for uid, stats in hy2_data.items():
-                        if isinstance(stats, list) and len(stats) >= 2:
-                            tx_delta, rx_delta = stats[0], stats[1]
-                            if tx_delta > 0 or rx_delta > 0:
-                                stmt = (
-                                    update(Peer)
-                                    .where(Peer.hy2_user == uid)
-                                    .values(
-                                        transfer_tx=Peer.transfer_tx + tx_delta,
-                                        transfer_rx=Peer.transfer_rx + rx_delta,
-                                        last_handshake=now_ts
-                                    )
+                        tx_delta, rx_delta = 0, 0
+                        if isinstance(stats, dict):
+                            tx_delta = int(stats.get("tx") or 0)
+                            rx_delta = int(stats.get("rx") or 0)
+                        elif isinstance(stats, list) and len(stats) >= 2:
+                            tx_delta = int(stats[0] or 0)
+                            rx_delta = int(stats[1] or 0)
+
+                        if tx_delta > 0 or rx_delta > 0:
+                            stmt = (
+                                update(Peer)
+                                .where(Peer.hy2_user == uid)
+                                .values(
+                                    transfer_tx=Peer.transfer_tx + tx_delta,
+                                    transfer_rx=Peer.transfer_rx + rx_delta,
+                                    last_handshake=now_ts
                                 )
-                                await db.execute(stmt)
-                                hy2_synced_count += 1
+                            )
+                            await db.execute(stmt)
+                            hy2_synced_count += 1
+                        elif stats:
+                            stmt = (
+                                update(Peer)
+                                .where(Peer.hy2_user == uid)
+                                .values(last_handshake=now_ts)
+                            )
+                            await db.execute(stmt)
         except Exception as e:
             logger.debug(f"Hysteria stats poll skipped or unreachable: {e}")
 
