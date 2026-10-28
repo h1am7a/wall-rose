@@ -1,6 +1,6 @@
 import os
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -14,6 +14,7 @@ from app.schemas import (
 )
 from app.core_manager import check_daemon_status, restart_daemon_service
 from app.security import require_admin
+from app.audit import log_admin_action
 
 router = APIRouter(prefix="/api/cores", tags=["Protocol Engines"], dependencies=[Depends(require_admin)])
 
@@ -159,6 +160,7 @@ trafficStats:
 async def update_core_config(
     core_id: str,
     payload: ProtocolCoreConfigUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     core = await db.get(ProtocolCore, core_id)
@@ -174,6 +176,15 @@ async def update_core_config(
         # Fallback if writing to restricted system directory in non-root dev mode
         pass
 
+    client_ip = request.client.host if request.client else "unknown"
+    await log_admin_action(
+        db,
+        action="CORE_CONFIG_UPDATE",
+        detail=f"Updated configuration for {core.display_name} ({core.core_id})",
+        ip_address=client_ip,
+        status="SUCCESS",
+    )
+
     return ApiResponse(ok=True, message=f"Configuration for {core.display_name} saved successfully")
 
 @router.post(
@@ -182,14 +193,35 @@ async def update_core_config(
     summary="Restart Daemon Service",
     description="Instructs systemd to gracefully restart the protocol service daemon."
 )
-async def restart_core(core_id: str, db: AsyncSession = Depends(get_db)):
+async def restart_core(
+    core_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
     core = await db.get(ProtocolCore, core_id)
     if not core:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Protocol core not found")
 
     service_name = get_service_unit_name(core_id)
     success = restart_daemon_service(service_name)
+    client_ip = request.client.host if request.client else "unknown"
+
     if not success:
+        await log_admin_action(
+            db,
+            action="CORE_RESTART",
+            detail=f"Failed to restart {service_name} ({core.display_name})",
+            ip_address=client_ip,
+            status="FAILED",
+        )
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to restart {service_name}")
+
+    await log_admin_action(
+        db,
+        action="CORE_RESTART",
+        detail=f"Gracefully restarted daemon {service_name} ({core.display_name})",
+        ip_address=client_ip,
+        status="SUCCESS",
+    )
 
     return ApiResponse(ok=True, message=f"{core.display_name} restarted successfully")

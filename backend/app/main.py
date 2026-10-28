@@ -14,7 +14,7 @@ from app.core_manager import auth_cache
 from app.traffic_aggregator import run_sync_loop
 
 # Routers
-from app.routers import auth, peers, cores, telemetry, subscription, webhook, backup
+from app.routers import auth, peers, cores, telemetry, subscription, webhook, backup, audit, system
 
 API_DESCRIPTION = """
 # Wall Rose (ウォール・ローゼ) Multi-Protocol Personal VPN Gateway
@@ -116,6 +116,8 @@ app.include_router(telemetry.router)
 app.include_router(subscription.router)
 app.include_router(webhook.router)
 app.include_router(backup.router)
+app.include_router(audit.router)
+app.include_router(system.router)
 
 # Mount Static UI directory
 static_path = Path(STATIC_DIR)

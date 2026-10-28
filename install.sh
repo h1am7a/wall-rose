@@ -702,6 +702,18 @@ chmod 600 "$CREDENTIALS_FILE"
 
 # 10. Systemd Services Deployment & Startup
 log_info "Deploying systemd service units..."
+
+# Configure systemd-journald retention and storage limits to prevent disk exhaustion
+log_info "Configuring systemd-journald storage limits (50M cap)..."
+mkdir -p /etc/systemd/journald.conf.d
+cat > /etc/systemd/journald.conf.d/wallrose.conf << 'EOF'
+[Journal]
+SystemMaxUse=50M
+RuntimeMaxUse=30M
+MaxRetentionSec=7day
+EOF
+systemctl restart systemd-journald 2>/dev/null || true
+
 cat > /etc/systemd/system/wallrose-panel.service << EOF
 [Unit]
 Description=Wall Rose (ウォール・ローゼ) Multi-Protocol Personal VPN Gateway Panel
@@ -712,7 +724,7 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=${INSTALL_DIR}/backend
-ExecStart=${INSTALL_DIR}/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PANEL_PORT}
+ExecStart=${INSTALL_DIR}/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PANEL_PORT} --no-access-log
 Restart=always
 RestartSec=3
 LimitNOFILE=65535
@@ -730,6 +742,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=root
+Environment="HYSTERIA_LOG_LEVEL=warn"
 ExecStart=/usr/local/bin/hysteria server -c /etc/hysteria/config.yaml
 Restart=always
 RestartSec=3

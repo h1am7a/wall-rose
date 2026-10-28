@@ -175,3 +175,33 @@ class ApiResponse(BaseModel):
     ok: bool = Field(True, description="Operation success indicator")
     message: str = Field(..., description="Descriptive status message")
     data: Optional[Dict[str, Any]] = Field(None, description="Optional response data payload")
+
+# ==============================================================================
+# AUDIT & SYSTEM LOG SCHEMAS
+# ==============================================================================
+
+class AuditLogItem(BaseModel):
+    """Single administrative audit trail record."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(..., description="Unique audit event ID")
+    action: str = Field(..., description="Action identifier (e.g. LOGIN_SUCCESS, PEER_CREATE)")
+    detail: str = Field(..., description="Human-readable event details")
+    ip_address: Optional[str] = Field(None, description="Originating client IP address")
+    status: str = Field("SUCCESS", description="Event outcome status (SUCCESS, FAILED)")
+    created_at: datetime = Field(..., description="UTC timestamp of the action")
+
+class AuditLogListResponse(BaseModel):
+    """Paginated list of audit events."""
+    ok: bool = Field(True, description="Query outcome")
+    total: int = Field(..., description="Total audit records matching query")
+    items: list[AuditLogItem] = Field(..., description="Audit records for the current page")
+
+class SystemLogResponse(BaseModel):
+    """Sanitized journalctl log output for a systemd daemon."""
+    ok: bool = Field(True, description="Query outcome")
+    service: str = Field(..., description="Requested service identifier")
+    systemd_unit: str = Field(..., description="Underlying systemd unit queried")
+    lines_requested: int = Field(..., description="Requested line count")
+    lines_returned: int = Field(..., description="Returned sanitized line count")
+    logs: list[str] = Field(..., description="Sanitized log lines")

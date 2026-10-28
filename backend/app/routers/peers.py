@@ -1,13 +1,14 @@
 import asyncio
 import secrets
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.config import settings
 from app.database import get_db
 from app.models import Peer
+from app.audit import log_admin_action
 from app.schemas import (
     PeerCreateRequest,
     PeerUpdateRequest,
@@ -121,6 +122,7 @@ async def list_peers(
 )
 async def create_peer(
     payload: PeerCreateRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     async with get_peer_provisioning_lock():
@@ -173,6 +175,16 @@ async def create_peer(
         # Register in high-speed in-memory auth cache for Hysteria 2
         auth_cache.set_user(hy2_user, hy2_pass, peer.status)
 
+        # Record admin audit event
+        client_ip = request.client.host if request.client else "unknown"
+        await log_admin_action(
+            db,
+            action="PEER_CREATE",
+            detail=f"Enrolled device '{peer.name}' (ID: {peer.id}, AWG0: {peer.awg0_ip}, AWG1: {peer.awg1_ip})",
+            ip_address=client_ip,
+            status="SUCCESS",
+        )
+
         return serialize_peer_detail(peer)
 
 @router.get(
@@ -193,7 +205,12 @@ async def get_peer(peer_id: int, db: AsyncSession = Depends(get_db)):
     summary="Update Device Metadata",
     description="Updates descriptive attributes (device name, platform descriptor)."
 )
-async def update_peer(peer_id: int, payload: PeerUpdateRequest, db: AsyncSession = Depends(get_db)):
+async def update_peer(
+    peer_id: int,
+    payload: PeerUpdateRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
     peer = await db.get(Peer, peer_id)
     if not peer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
@@ -205,6 +222,16 @@ async def update_peer(peer_id: int, payload: PeerUpdateRequest, db: AsyncSession
 
     await db.commit()
     await db.refresh(peer)
+
+    client_ip = request.client.host if request.client else "unknown"
+    await log_admin_action(
+        db,
+        action="PEER_UPDATE",
+        detail=f"Updated metadata for device '{peer.name}' (ID: {peer.id})",
+        ip_address=client_ip,
+        status="SUCCESS",
+    )
+
     return serialize_peer_response(peer)
 
 @router.patch(
@@ -213,7 +240,12 @@ async def update_peer(peer_id: int, payload: PeerUpdateRequest, db: AsyncSession
     summary="Toggle Device Status",
     description="Transitions peer state (e.g., ACTIVE <-> SUSPENDED) and applies changes live to kernel interfaces."
 )
-async def toggle_peer_status(peer_id: int, payload: PeerStatusUpdateRequest, db: AsyncSession = Depends(get_db)):
+async def toggle_peer_status(
+    peer_id: int,
+    payload: PeerStatusUpdateRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
     peer = await db.get(Peer, peer_id)
     if not peer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
@@ -232,6 +264,16 @@ async def toggle_peer_status(peer_id: int, payload: PeerStatusUpdateRequest, db:
         live_add_awg_peer(settings.AWG1_INTERFACE, peer.awg1_pubkey, peer.awg1_ip, peer.awg1_psk)
         auth_cache.set_user(peer.hy2_user, peer.hy2_pass, peer.status)
 
+    client_ip = request.client.host if request.client else "unknown"
+    action_type = "PEER_SUSPEND" if peer.status == "SUSPENDED" else "PEER_RESUME"
+    await log_admin_action(
+        db,
+        action=action_type,
+        detail=f"Changed status of device '{peer.name}' (ID: {peer.id}) to {peer.status}",
+        ip_address=client_ip,
+        status="SUCCESS",
+    )
+
     return serialize_peer_response(peer)
 
 @router.delete(
@@ -240,10 +282,17 @@ async def toggle_peer_status(peer_id: int, payload: PeerStatusUpdateRequest, db:
     summary="Revoke and Delete Device",
     description="Removes device credentials, unregisters from live AWG interfaces, invalidates Hysteria access, and releases IP addresses."
 )
-async def delete_peer(peer_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_peer(
+    peer_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
     peer = await db.get(Peer, peer_id)
     if not peer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
+
+    peer_name = peer.name
+    peer_id_val = peer.id
 
     # Remove from live interfaces
     live_remove_awg_peer(settings.AWG0_INTERFACE, peer.awg0_pubkey)
@@ -253,7 +302,16 @@ async def delete_peer(peer_id: int, db: AsyncSession = Depends(get_db)):
     await db.delete(peer)
     await db.commit()
 
-    return ApiResponse(ok=True, message=f"Device '{peer.name}' revoked and purged successfully")
+    client_ip = request.client.host if request.client else "unknown"
+    await log_admin_action(
+        db,
+        action="PEER_DELETE",
+        detail=f"Revoked and purged device '{peer_name}' (ID: {peer_id_val})",
+        ip_address=client_ip,
+        status="SUCCESS",
+    )
+
+    return ApiResponse(ok=True, message=f"Device '{peer_name}' revoked and purged successfully")
 
 @router.get(
     "/{peer_id}/awg.conf",

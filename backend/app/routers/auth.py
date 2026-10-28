@@ -1,8 +1,12 @@
 import time
-from fastapi import APIRouter, Response, Request, HTTPException, status
+from fastapi import APIRouter, Response, Request, HTTPException, status, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.config import settings
+from app.database import get_db
 from app.schemas import AdminLoginRequest, AdminLoginResponse, AdminSessionStatus, ApiResponse
 from app.security import create_admin_session, verify_admin_session, revoke_admin_session, verify_password
+from app.audit import log_admin_action
 
 router = APIRouter(prefix="/api/auth", tags=["Admin Authentication"])
 
@@ -17,7 +21,12 @@ LOCKOUT_WINDOW_SECONDS = 300  # 5 minutes
     summary="Authenticate Administrator",
     description="Validates administrative credentials and establishes an authenticated session."
 )
-async def admin_login(payload: AdminLoginRequest, request: Request, response: Response):
+async def admin_login(
+    payload: AdminLoginRequest,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
     client_ip = request.client.host if request.client else "unknown"
     now = time.time()
 
@@ -25,6 +34,13 @@ async def admin_login(payload: AdminLoginRequest, request: Request, response: Re
     if client_ip in FAILED_ATTEMPTS:
         FAILED_ATTEMPTS[client_ip] = [t for t in FAILED_ATTEMPTS[client_ip] if now - t < LOCKOUT_WINDOW_SECONDS]
         if len(FAILED_ATTEMPTS[client_ip]) >= MAX_FAILED_ATTEMPTS:
+            await log_admin_action(
+                db,
+                action="LOGIN_LOCKOUT",
+                detail="Too many failed login attempts (lockout active)",
+                ip_address=client_ip,
+                status="FAILED",
+            )
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Too many failed login attempts. Security lockout active for 5 minutes."
@@ -34,6 +50,13 @@ async def admin_login(payload: AdminLoginRequest, request: Request, response: Re
         if client_ip not in FAILED_ATTEMPTS:
             FAILED_ATTEMPTS[client_ip] = []
         FAILED_ATTEMPTS[client_ip].append(now)
+        await log_admin_action(
+            db,
+            action="LOGIN_FAILED",
+            detail="Invalid master password attempt",
+            ip_address=client_ip,
+            status="FAILED",
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid master password"
@@ -41,8 +64,16 @@ async def admin_login(payload: AdminLoginRequest, request: Request, response: Re
 
     # Authentication successful: clear failed attempts
     FAILED_ATTEMPTS.pop(client_ip, None)
-    
+
     token = create_admin_session()
+
+    await log_admin_action(
+        db,
+        action="LOGIN_SUCCESS",
+        detail="Administrator authenticated successfully",
+        ip_address=client_ip,
+        status="SUCCESS",
+    )
     
     # Set HTTP-only session cookie (Secure if configured or served over HTTPS)
     is_secure = settings.COOKIE_SECURE or (request.url.scheme == "https") or (request.headers.get("x-forwarded-proto") == "https")
@@ -68,15 +99,28 @@ async def admin_login(payload: AdminLoginRequest, request: Request, response: Re
     summary="Terminate Session",
     description="Invalidates current session token and clears the administrative cookie."
 )
-async def admin_logout(request: Request, response: Response):
+async def admin_logout(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    client_ip = request.client.host if request.client else "unknown"
     token = request.cookies.get("admin_session")
     if not token and "Authorization" in request.headers:
         auth_hdr = request.headers["Authorization"]
         if auth_hdr.startswith("Bearer "):
             token = auth_hdr.split(" ", 1)[1]
-            
+
     revoke_admin_session(token)
     response.delete_cookie("admin_session")
+
+    await log_admin_action(
+        db,
+        action="LOGOUT",
+        detail="Administrator session terminated",
+        ip_address=client_ip,
+        status="SUCCESS",
+    )
     return ApiResponse(ok=True, message="Session logged out successfully")
 
 @router.get(

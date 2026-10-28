@@ -440,11 +440,11 @@
     }
 
     /* =========================================================================
-       CLEAN TAB NAVIGATION
+       CLEAN TAB NAVIGATION (Natural Widths, No-Wrap Single Row)
        ========================================================================= */
     .clean-nav {
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       gap: 10px;
       margin-bottom: 24px;
       border-bottom: 3.5px solid var(--ink-border);
@@ -467,6 +467,8 @@
       align-items: center;
       gap: 8px;
       transition: all 0.12s ease;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .tab-btn:hover {
@@ -488,6 +490,339 @@
       stroke-width: 2.5;
       fill: none;
       stroke: currentColor;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 900px) {
+      .clean-nav {
+        gap: 6px;
+      }
+      .tab-btn {
+        padding: 8px 12px;
+        font-size: 0.76rem;
+        gap: 6px;
+      }
+      .tab-btn svg {
+        width: 15px;
+        height: 15px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .clean-nav {
+        gap: 4px;
+        padding-bottom: 8px;
+      }
+      .tab-btn {
+        padding: 7px 8px;
+        font-size: 0.68rem;
+        gap: 4px;
+      }
+      .tab-btn svg {
+        width: 13px;
+        height: 13px;
+      }
+    }
+
+    /* =========================================================================
+       LOGS & AUDIT SECTION STYLES
+       ========================================================================= */
+    .logs-container {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      margin-bottom: 32px;
+    }
+
+    .logs-sub-nav {
+      display: flex;
+      gap: 8px;
+      border-bottom: 2.5px solid var(--ink-border);
+      padding-bottom: 10px;
+    }
+
+    .logs-sub-btn {
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 8px 16px;
+      background: var(--bg-panel);
+      color: var(--text-muted);
+      border: 2px solid var(--ink-border);
+      box-shadow: 2.5px 2.5px 0px var(--ink-shadow);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.12s ease;
+      user-select: none;
+    }
+
+    .logs-sub-btn:hover {
+      color: var(--text-main);
+      transform: translate(-1px, -1px);
+      box-shadow: 3.5px 3.5px 0px var(--ink-shadow);
+    }
+
+    .logs-sub-btn.active {
+      background: var(--ink-border);
+      color: var(--bg-canvas);
+      transform: translate(-1px, -1px);
+      box-shadow: 3.5px 3.5px 0px var(--ink-shadow);
+    }
+
+    body[data-theme="manga-noir"] .logs-sub-btn.active {
+      background: var(--accent-red);
+      color: #ffffff;
+    }
+
+    .logs-sub-btn svg {
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.5;
+    }
+
+    .logs-panel-card {
+      background: var(--bg-panel);
+      border: 3.5px solid var(--ink-border);
+      box-shadow: 6px 6px 0px var(--ink-shadow);
+      padding: 20px;
+      position: relative;
+    }
+
+    .logs-controls-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 16px;
+      border-bottom: 2px dashed var(--ink-border-soft);
+      margin-bottom: 16px;
+    }
+
+    .logs-filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logs-select {
+      font-family: var(--font-ui);
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 7px 12px;
+      background: var(--bg-panel-alt);
+      color: var(--text-main);
+      border: 2px solid var(--ink-border);
+      box-shadow: 2px 2px 0px var(--ink-shadow);
+      border-radius: 0;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .audit-table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      border: 2.5px solid var(--ink-border);
+      background: var(--bg-panel);
+    }
+
+    .audit-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-ui);
+      font-size: 0.82rem;
+      text-align: left;
+    }
+
+    .audit-table th {
+      font-family: var(--font-display);
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: var(--bg-panel-alt);
+      color: var(--text-main);
+      border-bottom: 2.5px solid var(--ink-border);
+      border-right: 1.5px solid var(--ink-border-soft);
+      padding: 10px 14px;
+      white-space: nowrap;
+    }
+
+    .audit-table th:last-child {
+      border-right: none;
+    }
+
+    .audit-table td {
+      padding: 10px 14px;
+      border-bottom: 1.5px solid var(--ink-border-soft);
+      border-right: 1.5px solid var(--ink-border-soft);
+      vertical-align: middle;
+      color: var(--text-main);
+    }
+
+    .audit-table td:last-child {
+      border-right: none;
+    }
+
+    .audit-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .audit-table tr:hover td {
+      background: var(--bg-panel-alt);
+    }
+
+    .audit-time {
+      font-family: monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+
+    .audit-ip {
+      font-family: monospace;
+      font-size: 0.80rem;
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
+    }
+
+    .audit-badge {
+      display: inline-block;
+      font-family: var(--font-display);
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 3px 8px;
+      border: 1.5px solid var(--ink-border);
+      box-shadow: 1.5px 1.5px 0px var(--ink-shadow);
+      white-space: nowrap;
+    }
+
+    .audit-badge-success {
+      background: #d8f3dc;
+      color: #1b4332;
+    }
+
+    .audit-badge-failed {
+      background: var(--accent-red);
+      color: #ffffff;
+      font-weight: 700;
+    }
+      50% { box-shadow: 0px 0px 8px var(--accent-red); }
+    }
+
+    .audit-badge-peer {
+      background: var(--accent-yellow);
+      color: #141416;
+    }
+
+    .audit-badge-core {
+      background: var(--accent-blue);
+      color: #ffffff;
+    }
+
+    .audit-badge-neutral {
+      background: var(--bg-panel-alt);
+      color: var(--text-main);
+    }
+
+    .audit-pagination-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+      padding-top: 10px;
+    }
+
+    .system-console-wrapper {
+      background: #0d0e12;
+      border: 3px solid var(--ink-border);
+      box-shadow: 4px 4px 0px var(--ink-shadow);
+      position: relative;
+    }
+
+    .system-console-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      background: #181920;
+      border-bottom: 2px solid var(--ink-border);
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      color: #a0a5b5;
+    }
+
+    .system-console-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .console-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1.5px solid #000;
+    }
+
+    .console-dot-red { background: #ef233c; }
+    .console-dot-yellow { background: #ffb703; }
+    .console-dot-green { background: #2ec4b6; }
+
+    .system-console-body {
+      padding: 14px;
+      height: 480px;
+      overflow-y: auto;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 0.80rem;
+      line-height: 1.55;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .system-console-body::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .system-console-body::-webkit-scrollbar-track {
+      background: #0d0e12;
+    }
+
+    .system-console-body::-webkit-scrollbar-thumb {
+      background: #2a2b36;
+      border: 1px solid var(--ink-border);
+    }
+
+    .log-line-error {
+      color: #ff5566;
+      font-weight: 700;
+    }
+
+    .log-line-warn {
+      color: #fbbf24;
+    }
+
+    .log-line-info {
+      color: #38bdf8;
+    }
+
+    .log-line-redacted {
+      background: #332200;
+      color: #facc15;
+      padding: 1px 4px;
+      border: 1px dashed #ca8a04;
     }
 
     .tab-content {
@@ -513,6 +848,61 @@
       transform: translateY(-2px);
       margin-right: 2px;
       vertical-align: middle;
+    }
+
+    /* Strict Font Unification for Code and Strong in flow-body */
+    .flow-body,
+    .flow-body p,
+    .flow-body code,
+    .flow-body strong,
+    .flow-body span {
+      font-family: var(--font-ui) !important;
+      font-style: normal !important;
+    }
+
+    .flow-body code {
+      font-family: var(--font-ui) !important;
+      font-style: normal !important;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: var(--bg-panel-alt);
+      color: var(--text-main);
+      padding: 1.5px 6px;
+      border: 1.5px solid var(--ink-border);
+      box-shadow: 1.5px 1.5px 0px var(--ink-shadow);
+      border-radius: 0;
+      display: inline-block;
+      vertical-align: baseline;
+      letter-spacing: 0;
+    }
+
+    .flow-body strong {
+      font-family: var(--font-ui) !important;
+      font-style: normal !important;
+      font-weight: 700;
+      color: var(--text-main);
+      background: rgba(255, 183, 3, 0.18);
+      border-bottom: 2px solid var(--accent-yellow);
+      padding: 0 3px;
+    }
+
+    body[data-theme="manga-noir"] .flow-body strong {
+      background: rgba(224, 0, 0, 0.22);
+      border-bottom: 2px solid var(--accent-red);
+    }
+
+    .flow-arrow-icon {
+      width: 13px;
+      height: 13px;
+      stroke: var(--accent-red);
+      stroke-width: 3;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      display: inline-block;
+      vertical-align: middle;
+      margin: 0 4px;
+      transform: translateY(-1px);
     }
 
     /* =========================================================================
@@ -1294,7 +1684,18 @@
           <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
           <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
         </svg>
-        Routing & Subscriptions
+        Routing &amp; Subscriptions
+      </button>
+
+      <button class="tab-btn" id="tab-btn-logs" onclick="switchSection('logs')">
+        <svg viewBox="0 0 24 24">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+        Logs
       </button>
     </nav>
 
@@ -1443,7 +1844,7 @@
             <div class="flow-num">1</div>
             <div class="flow-body">
               <h4>Strict Deterministic Failover</h4>
-              <p>Mihomo group <code>type: fallback</code> with <code>lazy: true</code> routes traffic through <strong>AWG 3.1</strong> ➔ <strong>AWG 2.0</strong> ➔ <strong>Hysteria 2</strong>. Zero socket flapping, protecting games and voice calls.</p>
+              <p>Mihomo group <code>type: fallback</code> with <code>lazy: true</code> routes traffic through <strong>AWG 3.1</strong><svg viewBox="0 0 24 24" class="flow-arrow-icon"><path d="M5 12h14M12 5l7 7-7 7"/></svg><strong>AWG 2.0</strong><svg viewBox="0 0 24 24" class="flow-arrow-icon"><path d="M5 12h14M12 5l7 7-7 7"/></svg><strong>Hysteria 2</strong>. Zero socket flapping, protecting games and voice calls.</p>
             </div>
           </div>
 
@@ -1451,14 +1852,14 @@
             <div class="flow-num">2</div>
             <div class="flow-body">
               <h4>Targeted Proxy Bypasses</h4>
-              <p>Rules prioritize <strong>YouTube</strong> (bypasses throttled GGC caches), <strong>Discord</strong>, <strong>Telegram & VoIP</strong> (unblocks regional throttling), and <strong>Antifilter</strong> (all RKN registry blocks) straight into the tunnel.</p>
+              <p>Rules prioritize <strong>YouTube</strong> (bypasses throttled GGC caches), <strong>Discord</strong>, <strong>Telegram &amp; VoIP</strong> (unblocks regional throttling), and <strong>Antifilter</strong> (all RKN registry blocks) straight into the tunnel.</p>
             </div>
           </div>
 
           <div class="flow-step">
             <div class="flow-num">3</div>
             <div class="flow-body">
-              <h4>Full Tunnel & Anti-Loop</h4>
+              <h4>Full Tunnel &amp; Anti-Loop</h4>
               <p>Full tunnel routes all traffic via VPN mesh (<code>MATCH,TRINITY</code>) while local loopback and LAN subnets stay <code>DIRECT</code> to prevent client TUN routing loops.</p>
             </div>
           </div>
@@ -1594,6 +1995,179 @@ rules:
               </svg>
               Open YAML Preview
             </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         SECTION 4: LOGS & JOURNAL
+         ========================================================================= -->
+    <section id="section-logs" class="tab-content">
+      <div class="logs-container">
+
+        <!-- Sub-tabs navigation -->
+        <div class="logs-sub-nav">
+          <button class="logs-sub-btn active" id="logsSubTabAudit" onclick="switchLogsSubTab('audit')">
+            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Security Audit
+          </button>
+          <button class="logs-sub-btn" id="logsSubTabSystem" onclick="switchLogsSubTab('system')">
+            <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            Service Logs
+          </button>
+        </div>
+
+        <!-- 3a: Security Audit Sub-Panel -->
+        <div id="logsPanelAudit" class="logs-panel-card">
+          <div class="sfx-badge" style="background: var(--accent-red); color: #ffffff; transform: rotate(1.5deg);">IMMUTABLE</div>
+          <div class="blueprint-header" style="margin-bottom: 14px;">
+            <div>
+              <h3 style="margin: 0 0 4px 0;">Security Audit Trail</h3>
+              <div class="blueprint-sub">Administrative actions, peer credential events, and master login attempts</div>
+            </div>
+          </div>
+
+          <!-- Controls Bar -->
+          <div class="logs-controls-bar">
+            <div class="logs-filter-group">
+              <div>
+                <label style="font-family: var(--font-display); font-size: 0.72rem; text-transform: uppercase; color: var(--text-dim); display: block; margin-bottom: 2px;">Action</label>
+                <select id="auditFilterAction" class="logs-select" onchange="loadAuditLogs(0)">
+                  <option value="">ALL ACTIONS</option>
+                  <option value="LOGIN_SUCCESS">LOGIN_SUCCESS</option>
+                  <option value="LOGIN_FAILED">LOGIN_FAILED (Bruteforce)</option>
+                  <option value="LOGIN_LOCKOUT">LOGIN_LOCKOUT</option>
+                  <option value="LOGOUT">LOGOUT</option>
+                  <option value="PEER_CREATE">PEER_CREATE</option>
+                  <option value="PEER_DELETE">PEER_DELETE</option>
+                  <option value="PEER_SUSPEND">PEER_SUSPEND</option>
+                  <option value="PEER_RESUME">PEER_RESUME</option>
+                  <option value="CORE_RESTART">CORE_RESTART</option>
+                  <option value="CORE_CONFIG_UPDATE">CORE_CONFIG_UPDATE</option>
+                </select>
+              </div>
+
+              <div>
+                <label style="font-family: var(--font-display); font-size: 0.72rem; text-transform: uppercase; color: var(--text-dim); display: block; margin-bottom: 2px;">Status</label>
+                <select id="auditFilterStatus" class="logs-select" onchange="loadAuditLogs(0)">
+                  <option value="">ALL STATUSES</option>
+                  <option value="SUCCESS">SUCCESS</option>
+                  <option value="FAILED">FAILED</option>
+                </select>
+              </div>
+
+              <div>
+                <label style="font-family: var(--font-display); font-size: 0.72rem; text-transform: uppercase; color: var(--text-dim); display: block; margin-bottom: 2px;">Limit</label>
+                <select id="auditFilterLimit" class="logs-select" onchange="loadAuditLogs(0)">
+                  <option value="25">25 rows</option>
+                  <option value="50" selected>50 rows</option>
+                  <option value="100">100 rows</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+              <button class="comic-btn comic-btn-yellow" onclick="loadAuditLogs(auditCurrentOffset)" style="padding: 7px 14px; gap: 6px;">
+                <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.5;"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- Table Container -->
+          <div class="audit-table-wrapper">
+            <table class="audit-table">
+              <thead>
+                <tr>
+                  <th style="width: 160px;">Time (UTC)</th>
+                  <th style="width: 135px;">Client IP</th>
+                  <th style="width: 170px;">Event Action</th>
+                  <th style="width: 105px;">Outcome</th>
+                  <th>Event Details</th>
+                </tr>
+              </thead>
+              <tbody id="auditTableBody">
+                <tr>
+                  <td colspan="5" style="text-align: center; padding: 30px; color: var(--text-dim);">Loading audit events...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Bar -->
+          <div class="audit-pagination-bar">
+            <span id="auditPaginationInfo" style="font-family: var(--font-ui); font-size: 0.80rem; color: var(--text-muted); font-weight: 700;">Showing 0 of 0 events</span>
+            <div style="display: flex; gap: 8px;">
+              <button class="comic-btn" id="auditPrevBtn" onclick="pageAuditLogs(-1)" disabled style="padding: 6px 12px; font-size: 0.75rem;">
+                &larr; Prev
+              </button>
+              <button class="comic-btn" id="auditNextBtn" onclick="pageAuditLogs(1)" disabled style="padding: 6px 12px; font-size: 0.75rem;">
+                Next &rarr;
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3b: Service Logs Sub-Panel -->
+        <div id="logsPanelSystem" class="logs-panel-card" style="display: none;">
+          <div class="sfx-badge" style="background: var(--accent-blue); color: #ffffff; transform: rotate(-1.5deg);">LIVE JOURNAL</div>
+          <div class="blueprint-header" style="margin-bottom: 14px;">
+            <div>
+              <h3 style="margin: 0 0 4px 0;">Protocol &amp; Panel Journal</h3>
+              <div class="blueprint-sub">Real-time service logs with automatic client secret and token redaction</div>
+            </div>
+          </div>
+
+          <!-- Controls Bar -->
+          <div class="logs-controls-bar">
+            <div class="logs-filter-group">
+              <div>
+                <label style="font-family: var(--font-display); font-size: 0.72rem; text-transform: uppercase; color: var(--text-dim); display: block; margin-bottom: 2px;">Target Service</label>
+                <select id="systemServiceSelect" class="logs-select" onchange="loadSystemLogs()">
+                  <option value="panel" selected>Panel (wallrose-panel)</option>
+                  <option value="hy2">Hysteria 2 (hysteria-server)</option>
+                  <option value="awg1">AmneziaWG 3.1 (awg1-go)</option>
+                  <option value="awg0">AmneziaWG 2.0 (awg0-go)</option>
+                </select>
+              </div>
+
+              <div>
+                <label style="font-family: var(--font-display); font-size: 0.72rem; text-transform: uppercase; color: var(--text-dim); display: block; margin-bottom: 2px;">Line Count</label>
+                <select id="systemLinesSelect" class="logs-select" onchange="loadSystemLogs()">
+                  <option value="50">50 lines</option>
+                  <option value="100" selected>100 lines</option>
+                  <option value="200">200 lines</option>
+                  <option value="500">500 lines</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+              <button class="comic-btn" onclick="copySystemConsoleLogs()" style="padding: 7px 12px; gap: 6px;">
+                <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copy
+              </button>
+              <button class="comic-btn comic-btn-yellow" onclick="loadSystemLogs()" style="padding: 7px 14px; gap: 6px;">
+                <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.5;"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- Console Window -->
+          <div class="system-console-wrapper">
+            <div class="system-console-head">
+              <div class="system-console-dots">
+                <div class="console-dot console-dot-red"></div>
+                <div class="console-dot console-dot-yellow"></div>
+                <div class="console-dot console-dot-green"></div>
+              </div>
+              <span id="systemConsoleTitle">wallrose-panel.service</span>
+              <span id="systemConsoleTime" style="font-family: monospace; font-size: 0.70rem;">--:--:--</span>
+            </div>
+            <pre id="systemConsoleBody" class="system-console-body">Connecting to systemd-journald...</pre>
           </div>
         </div>
 
@@ -1861,13 +2435,16 @@ rules:
   <script>
     // Tab Navigation
     function switchSection(secId) {
-      const sections = ['peers', 'cores', 'routing'];
+      const sections = ['peers', 'cores', 'routing', 'logs'];
       sections.forEach(s => {
         const sec = document.getElementById(`section-${s}`);
         const tab = document.getElementById(`tab-btn-${s}`);
         if (sec) sec.classList.toggle('active', s === secId);
         if (tab) tab.classList.toggle('active', s === secId);
       });
+      if (secId === 'logs') {
+        onLogsTabOpened();
+      }
     }
 
     // Manga Theme Switcher (Tankōbon Paper vs Manga Noir)
@@ -2750,6 +3327,230 @@ rules:
         "'": '&#39;',
         '"': '&quot;'
       }[tag] || tag));
+    }
+
+// =========================================================================
+    // LOGS & AUDIT LOGIC
+    // =========================================================================
+    let currentLogsSubTab = 'audit';
+    let auditCurrentOffset = 0;
+    let auditCurrentLimit = 50;
+
+    function onLogsTabOpened() {
+      if (currentLogsSubTab === 'audit') {
+        loadAuditLogs(auditCurrentOffset);
+      } else {
+        loadSystemLogs();
+      }
+    }
+
+    function switchLogsSubTab(sub) {
+      currentLogsSubTab = sub;
+      const btnAudit = document.getElementById('logsSubTabAudit');
+      const btnSystem = document.getElementById('logsSubTabSystem');
+      const panelAudit = document.getElementById('logsPanelAudit');
+      const panelSystem = document.getElementById('logsPanelSystem');
+
+      if (btnAudit) btnAudit.classList.toggle('active', sub === 'audit');
+      if (btnSystem) btnSystem.classList.toggle('active', sub === 'system');
+      if (panelAudit) panelAudit.style.display = (sub === 'audit' ? 'block' : 'none');
+      if (panelSystem) panelSystem.style.display = (sub === 'system' ? 'block' : 'none');
+
+      if (sub === 'audit') {
+        loadAuditLogs(auditCurrentOffset);
+      } else {
+        loadSystemLogs();
+      }
+    }
+
+    async function loadAuditLogs(offset = 0) {
+      auditCurrentOffset = Math.max(0, offset);
+      const actionSel = document.getElementById('auditFilterAction');
+      const statusSel = document.getElementById('auditFilterStatus');
+      const limitSel = document.getElementById('auditFilterLimit');
+
+      const action = actionSel ? actionSel.value : '';
+      const status = statusSel ? statusSel.value : '';
+      const limit = limitSel ? parseInt(limitSel.value, 10) || 50 : 50;
+      auditCurrentLimit = limit;
+
+      let url = `/api/audit/logs?limit=${limit}&offset=${auditCurrentOffset}`;
+      if (action) url += `&action=${encodeURIComponent(action)}`;
+      if (status) url += `&status=${encodeURIComponent(status)}`;
+
+      const tbody = document.getElementById('auditTableBody');
+      const prevBtn = document.getElementById('auditPrevBtn');
+      const nextBtn = document.getElementById('auditNextBtn');
+      const infoSpan = document.getElementById('auditPaginationInfo');
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          if (res.status === 401) {
+            if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 24px; color: var(--accent-red); font-family: var(--font-ui);">Master authorization required. Unlock panel with master password to view audit trail.</td></tr>';
+            return;
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        const items = data.items || [];
+        const total = data.total || 0;
+
+        if (items.length === 0) {
+          if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 30px; color: var(--text-dim); font-family: var(--font-ui);">No audit events recorded yet matching this criteria.</td></tr>';
+        } else {
+          if (tbody) {
+            tbody.innerHTML = items.map(item => {
+              const dateStr = formatAuditTimestamp(item.created_at);
+              const actionBadgeClass = getActionBadgeClass(item.action, item.status);
+              const statusBadgeClass = item.status === 'FAILED' ? 'audit-badge-failed' : 'audit-badge-success';
+              const escapedDetail = escapeLogsHtml(item.detail || '');
+              const ipDisplay = item.ip_address || 'unknown';
+
+              return `
+                <tr>
+                  <td class="audit-time">${dateStr}</td>
+                  <td class="audit-ip">${escapeLogsHtml(ipDisplay)}</td>
+                  <td><span class="audit-badge ${actionBadgeClass}">${escapeLogsHtml(item.action)}</span></td>
+                  <td><span class="audit-badge ${statusBadgeClass}">${escapeLogsHtml(item.status)}</span></td>
+                  <td style="color: var(--text-main); font-size: 0.80rem;">${escapedDetail}</td>
+                </tr>
+              `;
+            }).join('');
+          }
+        }
+
+        const startCount = total === 0 ? 0 : auditCurrentOffset + 1;
+        const endCount = Math.min(auditCurrentOffset + items.length, total);
+        if (infoSpan) infoSpan.textContent = `Showing ${startCount}–${endCount} of ${total} events`;
+
+        if (prevBtn) prevBtn.disabled = (auditCurrentOffset <= 0);
+        if (nextBtn) nextBtn.disabled = (auditCurrentOffset + limit >= total);
+
+      } catch (err) {
+        console.error('Audit fetch failed:', err);
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 24px; color: var(--accent-red);">Failed to query audit logs: ${escapeLogsHtml(err.message)}</td></tr>`;
+        }
+      }
+    }
+
+    function pageAuditLogs(direction) {
+      const newOffset = auditCurrentOffset + (direction * auditCurrentLimit);
+      loadAuditLogs(newOffset);
+    }
+
+    function getActionBadgeClass(action, status) {
+      if (status === 'FAILED' || action === 'LOGIN_FAILED' || action === 'LOGIN_LOCKOUT') {
+        return 'audit-badge-failed';
+      }
+      if (action.startsWith('PEER_')) return 'audit-badge-peer';
+      if (action.startsWith('CORE_')) return 'audit-badge-core';
+      if (action === 'LOGIN_SUCCESS') return 'audit-badge-success';
+      return 'audit-badge-neutral';
+    }
+
+    function formatAuditTimestamp(isoString) {
+      if (!isoString) return '--:--:--';
+      try {
+        const d = new Date(isoString);
+        if (isNaN(d.getTime())) return isoString;
+        const pad = (n) => String(n).padStart(2, '0');
+        const day = pad(d.getUTCDate());
+        const mon = pad(d.getUTCMonth() + 1);
+        const yr = d.getUTCFullYear();
+        const hr = pad(d.getUTCHours());
+        const min = pad(d.getUTCMinutes());
+        const sec = pad(d.getUTCSeconds());
+        return `${day}.${mon}.${yr} ${hr}:${min}:${sec}`;
+      } catch (e) {
+        return isoString;
+      }
+    }
+
+    async function loadSystemLogs() {
+      const svcSel = document.getElementById('systemServiceSelect');
+      const linesSel = document.getElementById('systemLinesSelect');
+      const consoleBody = document.getElementById('systemConsoleBody');
+      const titleSpan = document.getElementById('systemConsoleTitle');
+      const timeSpan = document.getElementById('systemConsoleTime');
+
+      const service = svcSel ? svcSel.value : 'panel';
+      const lines = linesSel ? parseInt(linesSel.value, 10) || 100 : 100;
+
+      const unitFallback = (service === 'panel' ? 'wallrose-panel' : (service === 'hy2' ? 'hysteria-server' : (service === 'awg1' ? 'awg1-go' : 'awg0-go')));
+      if (titleSpan) titleSpan.textContent = `${unitFallback}.service`;
+
+      try {
+        const res = await fetch(`/api/system/logs?service=${encodeURIComponent(service)}&lines=${lines}`);
+        if (!res.ok) {
+          if (res.status === 401) {
+            if (consoleBody) consoleBody.textContent = '[UNAUTHORIZED] Master authorization required to access systemd journal.';
+            return;
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        const logLines = data.logs || [];
+        const unitName = data.systemd_unit || unitFallback;
+
+        if (titleSpan) titleSpan.textContent = `${unitName}.service`;
+        if (timeSpan) {
+          const now = new Date();
+          timeSpan.textContent = now.toLocaleTimeString();
+        }
+
+        if (logLines.length === 0) {
+          if (consoleBody) consoleBody.textContent = `[NOTICE] No recent journal lines recorded for ${unitName}.service`;
+        } else {
+          if (consoleBody) {
+            consoleBody.innerHTML = logLines.map(line => {
+              const escaped = escapeLogsHtml(line);
+              let cls = '';
+              if (line.includes('error') || line.includes('ERROR') || line.includes('Failed') || line.includes('FAILED')) {
+                cls = 'log-line-error';
+              } else if (line.includes('warn') || line.includes('WARN') || line.includes('Notice')) {
+                cls = 'log-line-warn';
+              } else if (line.includes('info') || line.includes('INFO') || line.includes('Started')) {
+                cls = 'log-line-info';
+              }
+              const highlighted = escaped.replaceAll('[REDACTED]', '<span class="log-line-redacted">[REDACTED]</span>');
+              return cls ? `<span class="${cls}">${highlighted}</span>` : highlighted;
+            }).join('\n');
+
+            consoleBody.scrollTop = consoleBody.scrollHeight;
+          }
+        }
+
+      } catch (err) {
+        console.error('System logs fetch failed:', err);
+        if (consoleBody) {
+          consoleBody.textContent = `[ERROR] Failed to query system journal: ${err.message}`;
+        }
+      }
+    }
+
+    function copySystemConsoleLogs() {
+      const consoleBody = document.getElementById('systemConsoleBody');
+      if (!consoleBody) return;
+      const text = consoleBody.innerText || consoleBody.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('System logs copied to clipboard!', 'success');
+      }).catch(() => {
+        showToast('Clipboard copy error', 'error');
+      });
+    }
+
+    function escapeLogsHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
 
     // Initialize Dashboard

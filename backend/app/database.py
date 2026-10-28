@@ -49,6 +49,15 @@ async def init_db():
     
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Non-destructive schema migration for audit_logs
+        try:
+            await conn.exec_driver_sql("ALTER TABLE audit_logs ADD COLUMN ip_address VARCHAR(45);")
+        except Exception:
+            pass
+        try:
+            await conn.exec_driver_sql("ALTER TABLE audit_logs ADD COLUMN status VARCHAR(16) DEFAULT 'SUCCESS';")
+        except Exception:
+            pass
 
     # Seed default ProtocolCores if not present
     async with AsyncSessionLocal() as session:
