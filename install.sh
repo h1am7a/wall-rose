@@ -179,12 +179,20 @@ elif [ -S "/var/run/amneziawg/${IFACE}.sock" ]; then
   ln -sf "/var/run/amneziawg/${IFACE}.sock" "/var/run/${IFACE}.sock" 2>/dev/null || true
 fi
 
-# Configure interface via awg / wg CLI
+# Configure interface via awg / wg CLI (strip quick-only Address/MTU/DNS to prevent setconf abort)
+CLEAN_CONF=$(mktemp)
+grep -vE '^[[:space:]]*(Address|MTU|DNS)[[:space:]]*=' "$CONF" > "$CLEAN_CONF"
+
 if command -v awg &>/dev/null; then
-  awg setconf "$IFACE" "$CONF" || true
+  awg setconf "$IFACE" "$CLEAN_CONF"
 elif command -v wg &>/dev/null; then
-  wg setconf "$IFACE" "$CONF" || true
+  wg setconf "$IFACE" "$CLEAN_CONF"
+else
+  echo "[FATAL] Neither awg nor wg binary found to configure $IFACE" >&2
+  rm -f "$CLEAN_CONF"
+  exit 1
 fi
+rm -f "$CLEAN_CONF"
 
 ip address replace "$ADDR" dev "$IFACE" 2>/dev/null || ip address add "$ADDR" dev "$IFACE" 2>/dev/null || true
 ip link set mtu 1280 up dev "$IFACE" 2>/dev/null || true
