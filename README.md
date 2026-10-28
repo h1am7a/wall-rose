@@ -89,7 +89,7 @@ The installer automatically configures:
 ## Client Setup
 
 ### Mihomo / Clash Verge Rev / Flclash
-1. Open dashboard, unlock console, and click **Mihomo Sub** on the device card.
+1. Open dashboard, unlock console, and click **Sub URL** (or scan **QR Code**) on the device card.
 2. In the client, add subscription via URL: `http://<SERVER_IP>:8000/sub/<TOKEN>`
 3. Set update interval to 24 hours.
 

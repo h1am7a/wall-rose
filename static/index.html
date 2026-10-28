@@ -7,6 +7,9 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='2' y='2' width='60' height='60' rx='10' fill='%23d90429' stroke='%23141416' stroke-width='4'/%3E%3Ctext x='32' y='46' font-family='sans-serif' font-weight='900' font-size='38' fill='%23ffffff' text-anchor='middle'%3E%E3%83%AD%3C/text%3E%3C/svg%3E">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
+  <!-- Local QR Code Engine -->
+  <script src="/static/qrcode.min.js" onerror="this.onerror=null;this.src='qrcode.min.js';"></script>
+
   <!-- Local Comic Fonts: Komika Axis & Komika Text Family -->
   <style>
     @font-face {
@@ -1174,7 +1177,7 @@
       </div>
 
       <div class="header-controls">
-        <button class="comic-btn comic-btn-yellow" onclick="openAddPeerModal()" style="font-size: 0.74rem; padding: 7px 14px; gap: 5px;" title="Enroll New Peer Device">
+        <button class="comic-btn comic-btn-blue" onclick="openAddPeerModal()" style="font-size: 0.74rem; padding: 7px 14px; gap: 5px;" title="Enroll New Peer Device">
           <span class="btn-plus-icon">+</span> Enroll Device
         </button>
         <!-- Force Refresh Metrics: Icon-only Comic Action -->
@@ -1312,7 +1315,7 @@
 
       <!-- Add Peer Callout Button -->
       <div style="text-align: center; margin-top: 10px;">
-        <button class="comic-btn comic-btn-yellow" onclick="openAddPeerModal()" style="padding: 14px 28px; font-size: 0.85rem; gap: 8px;">
+        <button class="comic-btn comic-btn-blue" onclick="openAddPeerModal()" style="padding: 14px 28px; font-size: 0.85rem; gap: 8px;">
           <span class="btn-plus-icon" style="font-size: 1.3rem; transform: translateY(-2.5px);">+</span>
           ENROLL NEW PEER DEVICE
         </button>
@@ -1688,8 +1691,8 @@ rules:
         </div>
       </div>
       <div class="modal-foot">
-        <button class="comic-btn" onclick="closeModal('addPeerModal')">Cancel</button>
-        <button class="comic-btn comic-btn-yellow" onclick="submitNewPeer()">
+        <button class="comic-btn comic-btn-black" onclick="closeModal('addPeerModal')">Cancel</button>
+        <button class="comic-btn comic-btn-blue" onclick="submitNewPeer()">
           <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 3;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           Enroll Device
         </button>
@@ -1721,12 +1724,17 @@ rules:
       </div>
       <div class="modal-foot">
         <button class="comic-btn comic-btn-yellow" onclick="downloadAwgFile()">
+          <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.5;">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
           Download .conf File
         </button>
         <button class="comic-btn" onclick="copyCodeFrom('awgCodeBox')">
           Copy Text
         </button>
-        <button class="comic-btn" onclick="closeModal('awgModal')">
+        <button class="comic-btn comic-btn-black" onclick="closeModal('awgModal')">
           Close
         </button>
       </div>
@@ -1755,7 +1763,38 @@ rules:
           </svg>
           Copy YAML Config
         </button>
-        <button class="comic-btn" onclick="closeModal('yamlModal')">
+        <button class="comic-btn comic-btn-black" onclick="closeModal('yamlModal')">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       QR CODE SUBSCRIPTION MODAL
+       ========================================================================= -->
+  <div class="comic-modal-overlay" id="qrModal">
+    <div class="comic-modal" style="max-width: 440px; text-align: center;">
+      <div class="modal-head" style="justify-content: space-between;">
+        <h3 id="qrModalTitle">Mihomo QR Code</h3>
+        <button class="modal-close-btn" onclick="closeModal('qrModal')" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 24px 20px; display: flex; flex-direction: column; align-items: center;">
+        <div style="background: #ffffff; padding: 18px; border: 3.5px solid var(--ink-border); box-shadow: 5px 5px 0px var(--ink-shadow); border-radius: 8px; display: inline-flex; justify-content: center; align-items: center; margin-bottom: 16px;">
+          <div id="qrCodeContainer"></div>
+        </div>
+        <p style="font-family: var(--font-ui); font-size: 0.82rem; color: var(--text-muted); margin-bottom: 4px; line-height: 1.5;">
+          Scan with mobile camera or import directly into <strong>Clash Verge Rev</strong>, <strong>Flclash</strong>, <strong>Mihomo Party</strong>, or <strong>Sing-box</strong>.
+        </p>
+      </div>
+      <div class="modal-foot">
+        <button class="comic-btn comic-btn-yellow" onclick="copyCurrentQrUrl()">
+          <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy Sub URL
+        </button>
+        <button class="comic-btn comic-btn-black" onclick="closeModal('qrModal')">
           Close
         </button>
       </div>
@@ -1800,7 +1839,7 @@ rules:
           Copy Text
         </button>
         <button class="comic-btn comic-btn-black" onclick="closeModal('serverConfigModal')">
-          Cancel
+          Close
         </button>
       </div>
     </div>
@@ -2200,7 +2239,7 @@ rules:
             <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: var(--bg-panel); border: 3.5px dashed var(--ink-border); border-radius: 12px;">
               <h3 style="font-family: var(--font-display); font-size: 1.4rem; text-transform: uppercase; margin-bottom: 8px;">No Devices Enrolled</h3>
               <p style="font-family: var(--font-ui); font-size: 0.88rem; color: var(--text-muted); margin-bottom: 20px;">Click 'Enroll Device' above to provision your first AmneziaWG & Hysteria 2 client node!</p>
-              <button class="comic-btn comic-btn-yellow" onclick="openAddPeerModal()" style="gap: 6px;">
+              <button class="comic-btn comic-btn-blue" onclick="openAddPeerModal()" style="gap: 6px;">
                 <span class="btn-plus-icon">+</span>
                 Enroll First Device
               </button>
@@ -2269,9 +2308,26 @@ rules:
 
               <div>
                 <div class="card-actions-row">
+                  <button class="comic-btn comic-btn-black" onclick="openQrModal('${subUrl}', '${escapeHtml(peer.name)}')">
+                    <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.2;">
+                      <rect width="5" height="5" x="3" y="3" rx="1"/>
+                      <rect width="5" height="5" x="16" y="3" rx="1"/>
+                      <rect width="5" height="5" x="3" y="16" rx="1"/>
+                      <path d="M21 16h-3a2 2 0 0 0-2 2v3"/>
+                      <path d="M21 21v.01"/>
+                      <path d="M12 7v3a2 2 0 0 1-2 2H7"/>
+                      <path d="M3 12h.01"/>
+                      <path d="M12 3h.01"/>
+                      <path d="M12 16v.01"/>
+                      <path d="M16 12h1"/>
+                      <path d="M21 12v.01"/>
+                      <path d="M12 21v-1"/>
+                    </svg>
+                    QR Code
+                  </button>
                   <button class="comic-btn comic-btn-yellow" onclick="copyMihomoSubUrl('${subUrl}', '${escapeHtml(peer.name)}')">
                     <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    Mihomo Sub
+                    Sub URL
                   </button>
                   <button class="comic-btn comic-btn-blue" onclick="copySingboxSubUrl('${subUrl}?format=json', '${escapeHtml(peer.name)}')">
                     <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -2417,6 +2473,44 @@ rules:
       showToast(`*WHOOSH!* AWG ${curVer} .conf downloaded!`, 'success');
     }
 
+    // Modal: QR Code Subscription
+    let currentQrUrl = '';
+    let currentQrName = '';
+    let qrcodeInstance = null;
+
+    function openQrModal(url, name) {
+      currentQrUrl = url;
+      currentQrName = name;
+
+      const title = document.getElementById('qrModalTitle');
+      if (title) title.textContent = `${name.toUpperCase()} — MIHOMO QR CODE`;
+
+      const container = document.getElementById('qrCodeContainer');
+      if (container) {
+        container.innerHTML = '';
+        if (typeof QRCode !== 'undefined') {
+          qrcodeInstance = new QRCode(container, {
+            text: url,
+            width: 200,
+            height: 200,
+            colorDark: '#141416',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        } else {
+          container.innerHTML = '<p style="font-family: var(--font-ui); font-size: 0.82rem; color: var(--accent-red); font-weight: 700;">QR code engine loading...</p>';
+        }
+      }
+
+      document.getElementById('qrModal').classList.add('open');
+    }
+
+    function copyCurrentQrUrl() {
+      if (currentQrUrl) {
+        copyToClipboard(currentQrUrl, `*CLICK!* Sub URL copied for ${currentQrName}!`);
+      }
+    }
+
     // Modal: Server Config Editor
     async function openServerConfigModal(coreId) {
       curEditingCore = coreId;
@@ -2546,7 +2640,7 @@ rules:
 
     // Peer Action Helpers
     function copyMihomoSubUrl(url, name) {
-      copyToClipboard(url, `*CLICK!* Mihomo Sub URL copied for ${name}!`);
+      copyToClipboard(url, `*CLICK!* Sub URL copied for ${name}!`);
     }
 
     function copySingboxSubUrl(url, name) {
