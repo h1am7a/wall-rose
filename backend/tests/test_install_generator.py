@@ -50,43 +50,43 @@ def test_install_config_generation_and_sub_matching():
                 format=serialization.PublicFormat.Raw
             )).decode("ascii")
 
-        def parse_ini_kv(path):
-            kv = {}
-            if os.path.isfile(path):
-                with open(path, "r", encoding="utf-8") as f:
-                    for line in f:
-                        s = line.strip()
-                        if s.startswith("[Peer]"):
-                            break
-                        if "=" in s:
-                            k, v = s.split("=", 1)
-                            kv[k.strip().lower()] = v.strip().strip("\"'")
-            return kv
+        def get_free_udp_port(exclude_ports=None):
+            import socket
+            import random
+            exclude = set(exclude_ports or [])
+            ports = [p for p in range(40000, 60001) if p not in exclude]
+            random.shuffle(ports)
+            for p in ports:
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                        s.bind(('', p))
+                        return str(p)
+                except OSError:
+                    continue
+            raise RuntimeError("No free UDP port found in 40000-60000 range")
 
-        # AWG0
-        awg0_kv = parse_ini_kv(awg0_conf)
-        if "privatekey" in awg0_kv and len(awg0_kv["privatekey"]) >= 32:
-            awg0_priv = awg0_kv["privatekey"]
-            awg0_pub = derive_pubkey_from_priv(awg0_priv)
-            awg0_port = awg0_kv.get("listenport", "49120")
-            awg0_jc = awg0_kv.get("jc", "4")
-            awg0_h1 = awg0_kv.get("h1", "1234567890")
-        else:
-            awg0_priv, awg0_pub = gen_x25519_keypair()
-            awg0_port = "49120"
-            awg0_jc = str(secrets.randbelow(7) + 2)
-            awg0_jmin = str(secrets.randbelow(21) + 10)
-            awg0_jmax = str(secrets.randbelow(51) + 40)
-            awg0_s1 = str(secrets.randbelow(181) + 20)
-            awg0_s2 = str(secrets.randbelow(181) + 20)
-            awg0_s3 = str(secrets.randbelow(181) + 20)
-            awg0_s4 = str(secrets.randbelow(181) + 20)
-            awg0_h1 = str(secrets.randbelow(1000000000) + 1000000000)
-            awg0_h2 = str(secrets.randbelow(1000000000) + 1000000000)
-            awg0_h3 = str(secrets.randbelow(1000000000) + 1000000000)
-            awg0_h4 = str(secrets.randbelow(1000000000) + 1000000000)
-            with open(awg0_conf, "w", encoding="utf-8") as f:
-                f.write(f"""[Interface]
+        def gen_collision_free_s():
+            while True:
+                s1 = secrets.randbelow(181) + 20
+                s2 = secrets.randbelow(181) + 20
+                s3 = secrets.randbelow(181) + 20
+                s4 = secrets.randbelow(181) + 20
+                if len({148 + s1, 92 + s2, 64 + s3, 32 + s4}) == 4:
+                    return str(s1), str(s2), str(s3), str(s4)
+
+        # AWG0 (v2) - clean install always generates fresh keys and params
+        awg0_priv, awg0_pub = gen_x25519_keypair()
+        awg0_port = get_free_udp_port()
+        awg0_jc = str(secrets.randbelow(9) + 4)          # 4..12 (Amnezia recommended)
+        awg0_jmin = str(secrets.randbelow(21) + 10)       # 10..30
+        awg0_jmax = str(secrets.randbelow(51) + 40)       # 40..90 (< 1280 MTU)
+        awg0_s1, awg0_s2, awg0_s3, awg0_s4 = gen_collision_free_s()
+        awg0_h1 = str(secrets.randbelow(1000000000) + 1000000000)
+        awg0_h2 = str(secrets.randbelow(1000000000) + 1000000000)
+        awg0_h3 = str(secrets.randbelow(1000000000) + 1000000000)
+        awg0_h4 = str(secrets.randbelow(1000000000) + 1000000000)
+        with open(awg0_conf, "w", encoding="utf-8") as f:
+            f.write(f"""[Interface]
 Address = 10.8.0.1/24
 ListenPort = {awg0_port}
 PrivateKey = {awg0_priv}
@@ -103,31 +103,20 @@ H3 = {awg0_h3}
 H4 = {awg0_h4}
 """)
 
-        # AWG1
-        awg1_kv = parse_ini_kv(awg1_conf)
-        if "privatekey" in awg1_kv and len(awg1_kv["privatekey"]) >= 32:
-            awg1_priv = awg1_kv["privatekey"]
-            awg1_pub = derive_pubkey_from_priv(awg1_priv)
-            awg1_port = awg1_kv.get("listenport", "49121")
-            awg1_hpk = awg1_kv.get("headerprotectionkey", "")
-            awg1_h1 = awg1_kv.get("h1", "1234567891")
-        else:
-            awg1_priv, awg1_pub = gen_x25519_keypair()
-            awg1_port = "49121"
-            awg1_jc = str(secrets.randbelow(7) + 2)
-            awg1_jmin = str(secrets.randbelow(21) + 10)
-            awg1_jmax = str(secrets.randbelow(51) + 40)
-            awg1_s1 = str(secrets.randbelow(181) + 20)
-            awg1_s2 = str(secrets.randbelow(181) + 20)
-            awg1_s3 = str(secrets.randbelow(181) + 20)
-            awg1_s4 = str(secrets.randbelow(181) + 20)
-            awg1_h1 = str(secrets.randbelow(1000000000) + 1000000000)
-            awg1_h2 = str(secrets.randbelow(1000000000) + 1000000000)
-            awg1_h3 = str(secrets.randbelow(1000000000) + 1000000000)
-            awg1_h4 = str(secrets.randbelow(1000000000) + 1000000000)
-            awg1_hpk = base64.b64encode(secrets.token_bytes(32)).decode("ascii")
-            with open(awg1_conf, "w", encoding="utf-8") as f:
-                f.write(f"""[Interface]
+        # AWG1 (v3) - clean install always generates fresh keys and params
+        awg1_priv, awg1_pub = gen_x25519_keypair()
+        awg1_port = get_free_udp_port(exclude_ports={int(awg0_port)})
+        awg1_jc = str(secrets.randbelow(9) + 4)          # 4..12 (Amnezia recommended)
+        awg1_jmin = str(secrets.randbelow(21) + 10)       # 10..30
+        awg1_jmax = str(secrets.randbelow(51) + 40)       # 40..90 (< 1280 MTU)
+        awg1_s1, awg1_s2, awg1_s3, awg1_s4 = gen_collision_free_s()
+        awg1_h1 = str(secrets.randbelow(1000000000) + 1000000000)
+        awg1_h2 = str(secrets.randbelow(1000000000) + 1000000000)
+        awg1_h3 = str(secrets.randbelow(1000000000) + 1000000000)
+        awg1_h4 = str(secrets.randbelow(1000000000) + 1000000000)
+        awg1_hpk = base64.b64encode(secrets.token_bytes(32)).decode("ascii")
+        with open(awg1_conf, "w", encoding="utf-8") as f:
+            f.write(f"""[Interface]
 Address = 10.9.0.1/24
 ListenPort = {awg1_port}
 PrivateKey = {awg1_priv}
@@ -153,14 +142,16 @@ RandomTrailers = on
 DisableCookies = on
 """)
 
-        # Hy2
-        if not os.path.isfile(hy2_conf):
-            gecko_key = secrets.token_hex(16)
-            with open(hy2_conf, "w", encoding="utf-8") as f:
-                f.write(f"""listen: :443
+        # Hy2 - clean install always generates fresh gecko key
+        gecko_key = secrets.token_hex(16)
+        with open(hy2_conf, "w", encoding="utf-8") as f:
+            f.write(f"""listen: :443
 tls:
   cert: /etc/hysteria/server.crt
   key: /etc/hysteria/server.key
+quic:
+  maxIdleTimeout: 120s
+ignoreClientBandwidth: true
 obfs:
   type: gecko
   gecko:
@@ -193,15 +184,21 @@ trafficStats:
     assert "HeaderProtectionKey" not in c0_1
     assert "ContentPaddingAddition" in c1_1
 
-    # CHECK 3: Hysteria 2 on :443, NO 4433
+    # CHECK 3: Hysteria 2 on :443, NO 4433, maxIdleTimeout 120s, ignoreClientBandwidth true
     assert "listen: :443" in ch_1
     assert "4433" not in ch_1
+    assert "maxIdleTimeout: 120s" in ch_1
+    assert "ignoreClientBandwidth: true" in ch_1
 
-    # CHECK 4: Idempotency (re-running on dir1 preserves exact existing config)
+    # CHECK 4: Clean install always generates fresh configs & ports in 40000-60000
     c0_1_repeat, c1_1_repeat, ch_1_repeat, _, _, _ = run_installer_python_logic(dir1)
-    assert c0_1 == c0_1_repeat
-    assert c1_1 == c1_1_repeat
-    assert ch_1 == ch_1_repeat
+    assert c0_1 != c0_1_repeat, "Clean install must generate fresh AWG0 config"
+    assert c1_1 != c1_1_repeat, "Clean install must generate fresh AWG1 config"
+    assert ch_1 != ch_1_repeat, "Clean install must generate fresh Hy2 config"
+
+    # Verify port range 40000-60000 and no port collisions
+    awg0_params_1 = cm.get_awg_server_params("awg0") # will be tested below
+
 
     # CHECK 5: Verify that sub_generator correctly extracts real values from these configs
     # Save original settings paths
@@ -238,6 +235,12 @@ trafficStats:
         # AWG1 in sub matches awg1-userspace.conf
         awg1_proxy = next(p for p in data["proxies"] if p["name"] == "AWG1-v3")
         awg1_params = cm.get_awg_server_params("awg1")
+        awg0_params = cm.get_awg_server_params("awg0")
+        assert 40000 <= awg1_params["port"] <= 60000
+        assert 40000 <= awg0_params["port"] <= 60000
+        assert awg0_params["port"] != awg1_params["port"]
+        assert 4 <= awg0_params["jc"] <= 12
+        assert 4 <= awg1_params["jc"] <= 12
         assert awg1_proxy["port"] == awg1_params["port"]
         assert awg1_proxy["amnezia-wg-option"]["jc"] == awg1_params["jc"]
         assert awg1_proxy["amnezia-wg-option"]["header-protection-key"] == awg1_params["header_protection_key"]

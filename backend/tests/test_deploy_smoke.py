@@ -98,7 +98,7 @@ H4 = 1234567893
 Address = 10.9.0.1/24
 ListenPort = {port1}
 PrivateKey = {awg1_priv}
-Jc = 2
+Jc = 6
 Jmin = 10
 Jmax = 50
 S1 = {s1_1}
@@ -114,6 +114,9 @@ HeaderProtectionKey = {hpk}
 
     with open(hy2_conf, "w") as f:
         f.write(f"""listen: :443
+quic:
+  maxIdleTimeout: 120s
+ignoreClientBandwidth: true
 obfs:
   type: gecko
   gecko:

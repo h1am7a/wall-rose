@@ -302,24 +302,20 @@ def derive_pubkey_from_priv(priv_b64):
                 pass
         return ""
 
-def parse_ini_kv(path):
-    kv = {}
-    if os.path.isfile(path):
-        with open(path, "r", encoding="utf-8") as f:
-            for line in f:
-                s = line.strip()
-                if s.startswith("[Peer]"):
-                    break
-                if "=" in s:
-                    k, v = s.split("=", 1)
-                    kv[k.strip().lower()] = v.strip().strip("\"'")
-    return kv
-
-def get_free_udp_port():
+def get_free_udp_port(exclude_ports=None):
     import socket
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        s.bind(('', 0))
-        return str(s.getsockname()[1])
+    import random
+    exclude = set(exclude_ports or [])
+    ports = [p for p in range(40000, 60001) if p not in exclude]
+    random.shuffle(ports)
+    for p in ports:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.bind(('', p))
+                return str(p)
+        except OSError:
+            continue
+    raise RuntimeError("No free UDP port found in 40000-60000 range")
 
 def gen_collision_free_s():
     while True:
@@ -332,37 +328,19 @@ def gen_collision_free_s():
 
 # --- AWG0 (v2) Configuration ---
 awg0_conf = "/etc/amnezia/amneziawg/awg0-userspace.conf"
-awg0_kv = parse_ini_kv(awg0_conf)
+awg0_priv, awg0_pub = gen_x25519_keypair()
+awg0_port = get_free_udp_port()
+awg0_jc = str(secrets.randbelow(9) + 4)          # 4..12 (Amnezia recommended)
+awg0_jmin = str(secrets.randbelow(21) + 10)       # 10..30
+awg0_jmax = str(secrets.randbelow(51) + 40)       # 40..90 (< 1280 MTU)
+awg0_s1, awg0_s2, awg0_s3, awg0_s4 = gen_collision_free_s()
+awg0_h1 = str(secrets.randbelow(1000000000) + 1000000000)
+awg0_h2 = str(secrets.randbelow(1000000000) + 1000000000)
+awg0_h3 = str(secrets.randbelow(1000000000) + 1000000000)
+awg0_h4 = str(secrets.randbelow(1000000000) + 1000000000)
 
-if "privatekey" in awg0_kv and len(awg0_kv["privatekey"]) >= 32:
-    awg0_priv = awg0_kv["privatekey"]
-    awg0_pub = derive_pubkey_from_priv(awg0_priv)
-    awg0_port = awg0_kv.get("listenport") or os.environ.get("AWG0_PORT") or get_free_udp_port()
-    awg0_jc = awg0_kv.get("jc", "4")
-    awg0_jmin = awg0_kv.get("jmin", "10")
-    awg0_jmax = awg0_kv.get("jmax", "50")
-    awg0_s1 = awg0_kv.get("s1", "135")
-    awg0_s2 = awg0_kv.get("s2", "60")
-    awg0_s3 = awg0_kv.get("s3", "30")
-    awg0_s4 = awg0_kv.get("s4", "20")
-    awg0_h1 = awg0_kv.get("h1") or str(secrets.randbelow(1000000000) + 1000000000)
-    awg0_h2 = awg0_kv.get("h2") or str(secrets.randbelow(1000000000) + 1000000000)
-    awg0_h3 = awg0_kv.get("h3") or str(secrets.randbelow(1000000000) + 1000000000)
-    awg0_h4 = awg0_kv.get("h4") or str(secrets.randbelow(1000000000) + 1000000000)
-else:
-    awg0_priv, awg0_pub = gen_x25519_keypair()
-    awg0_port = os.environ.get("AWG0_PORT") or get_free_udp_port()
-    awg0_jc = str(secrets.randbelow(9) + 4)          # 4..12 (Amnezia recommended)
-    awg0_jmin = str(secrets.randbelow(21) + 10)       # 10..30
-    awg0_jmax = str(secrets.randbelow(51) + 40)       # 40..90 (< 1280 MTU)
-    awg0_s1, awg0_s2, awg0_s3, awg0_s4 = gen_collision_free_s()
-    awg0_h1 = str(secrets.randbelow(1000000000) + 1000000000)
-    awg0_h2 = str(secrets.randbelow(1000000000) + 1000000000)
-    awg0_h3 = str(secrets.randbelow(1000000000) + 1000000000)
-    awg0_h4 = str(secrets.randbelow(1000000000) + 1000000000)
-
-    with open(awg0_conf, "w", encoding="utf-8") as f:
-        f.write(f"""[Interface]
+with open(awg0_conf, "w", encoding="utf-8") as f:
+    f.write(f"""[Interface]
 Address = 10.8.0.1/24
 ListenPort = {awg0_port}
 PrivateKey = {awg0_priv}
@@ -378,45 +356,25 @@ H2 = {awg0_h2}
 H3 = {awg0_h3}
 H4 = {awg0_h4}
 """)
-    os.chmod(awg0_conf, 0o600)
+os.chmod(awg0_conf, 0o600)
 
 # --- AWG1 (v3) Configuration ---
 awg1_conf = "/etc/amnezia/amneziawg/awg1-userspace.conf"
-awg1_kv = parse_ini_kv(awg1_conf)
+awg1_priv, awg1_pub = gen_x25519_keypair()
+awg1_port = get_free_udp_port(exclude_ports={int(awg0_port)})
+awg1_jc = str(secrets.randbelow(9) + 4)          # 4..12 (Amnezia recommended)
+awg1_jmin = str(secrets.randbelow(21) + 10)       # 10..30
+awg1_jmax = str(secrets.randbelow(51) + 40)       # 40..90 (< 1280 MTU)
+awg1_s1, awg1_s2, awg1_s3, awg1_s4 = gen_collision_free_s()
+awg1_h1 = str(secrets.randbelow(1000000000) + 1000000000)
+awg1_h2 = str(secrets.randbelow(1000000000) + 1000000000)
+awg1_h3 = str(secrets.randbelow(1000000000) + 1000000000)
+awg1_h4 = str(secrets.randbelow(1000000000) + 1000000000)
+awg1_hpk = base64.b64encode(secrets.token_bytes(32)).decode("ascii")
+awg1_cpa = "32-128"
 
-if "privatekey" in awg1_kv and len(awg1_kv["privatekey"]) >= 32:
-    awg1_priv = awg1_kv["privatekey"]
-    awg1_pub = derive_pubkey_from_priv(awg1_priv)
-    awg1_port = awg1_kv.get("listenport") or os.environ.get("AWG1_PORT") or get_free_udp_port()
-    awg1_jc = awg1_kv.get("jc", "2")
-    awg1_jmin = awg1_kv.get("jmin", "10")
-    awg1_jmax = awg1_kv.get("jmax", "50")
-    awg1_s1 = awg1_kv.get("s1", "99")
-    awg1_s2 = awg1_kv.get("s2", "24")
-    awg1_s3 = awg1_kv.get("s3", "66")
-    awg1_s4 = awg1_kv.get("s4", "33")
-    awg1_h1 = awg1_kv.get("h1") or str(secrets.randbelow(1000000000) + 1000000000)
-    awg1_h2 = awg1_kv.get("h2") or str(secrets.randbelow(1000000000) + 1000000000)
-    awg1_h3 = awg1_kv.get("h3") or str(secrets.randbelow(1000000000) + 1000000000)
-    awg1_h4 = awg1_kv.get("h4") or str(secrets.randbelow(1000000000) + 1000000000)
-    awg1_hpk = awg1_kv.get("headerprotectionkey", base64.b64encode(secrets.token_bytes(32)).decode("ascii"))
-    awg1_cpa = awg1_kv.get("contentpaddingaddition", "32-128")
-else:
-    awg1_priv, awg1_pub = gen_x25519_keypair()
-    awg1_port = os.environ.get("AWG1_PORT") or get_free_udp_port()
-    awg1_jc = str(secrets.randbelow(9) + 4)          # 4..12 (Amnezia recommended)
-    awg1_jmin = str(secrets.randbelow(21) + 10)       # 10..30
-    awg1_jmax = str(secrets.randbelow(51) + 40)       # 40..90 (< 1280 MTU)
-    awg1_s1, awg1_s2, awg1_s3, awg1_s4 = gen_collision_free_s()
-    awg1_h1 = str(secrets.randbelow(1000000000) + 1000000000)
-    awg1_h2 = str(secrets.randbelow(1000000000) + 1000000000)
-    awg1_h3 = str(secrets.randbelow(1000000000) + 1000000000)
-    awg1_h4 = str(secrets.randbelow(1000000000) + 1000000000)
-    awg1_hpk = base64.b64encode(secrets.token_bytes(32)).decode("ascii")
-    awg1_cpa = "32-128"
-
-    with open(awg1_conf, "w", encoding="utf-8") as f:
-        f.write(f"""[Interface]
+with open(awg1_conf, "w", encoding="utf-8") as f:
+    f.write(f"""[Interface]
 Address = 10.9.0.1/24
 ListenPort = {awg1_port}
 PrivateKey = {awg1_priv}
@@ -441,28 +399,16 @@ MaxHandshakeAttempts = 15-20
 RandomTrailers = on
 DisableCookies = on
 """)
-    os.chmod(awg1_conf, 0o600)
+os.chmod(awg1_conf, 0o600)
 
 # --- Hysteria 2 Configuration ---
 hy2_conf = "/etc/hysteria/config.yaml"
-hy2_port = os.environ.get("HY2_PORT", "443")
-gecko_key = ""
+hy2_port = "443"
+gecko_key = secrets.token_hex(16)
+panel_port = os.environ.get("PANEL_PORT", "8000")
 
-if os.path.isfile(hy2_conf):
-    with open(hy2_conf, "r", encoding="utf-8") as f:
-        content = f.read()
-        m_pass = re.search(r"password:\s*(\S+)", content)
-        if m_pass:
-            gecko_key = m_pass.group(1).strip("\"'")
-        m_port = re.search(r"listen:\s*:?(\d+)", content)
-        if m_port:
-            hy2_port = m_port.group(1)
-
-if not gecko_key:
-    gecko_key = secrets.token_hex(16)
-    panel_port = os.environ.get("PANEL_PORT", "8000")
-    with open(hy2_conf, "w", encoding="utf-8") as f:
-        f.write(f"""listen: :{hy2_port}
+with open(hy2_conf, "w", encoding="utf-8") as f:
+    f.write(f"""listen: :{hy2_port}
 
 tls:
   cert: /etc/hysteria/server.crt
@@ -497,7 +443,7 @@ auth:
 trafficStats:
   listen: 127.0.0.1:9999
 """)
-    os.chmod(hy2_conf, 0o600)
+os.chmod(hy2_conf, 0o600)
 
 # Export variables to shell environment
 with open("/tmp/wallrose_env_vars.sh", "w", encoding="utf-8") as f:
