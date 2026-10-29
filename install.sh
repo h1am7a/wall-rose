@@ -613,7 +613,18 @@ if command -v aa-complain &>/dev/null && [ -f /etc/apparmor.d/usr.sbin.unbound ]
   aa-complain /etc/apparmor.d/usr.sbin.unbound 2>/dev/null || true
 fi
 
-cat > /etc/unbound/unbound.conf.d/wallrose.conf << 'EOF'
+# Remove previous wallrose.conf if present to inspect other conf files cleanly
+rm -f /etc/unbound/unbound.conf.d/wallrose.conf
+
+# Idempotent deduplication: check if any OS-packaged or host conf already defines a trust anchor
+ANCHOR_DIRECTIVE=""
+if grep -rqsE '^[[:space:]]*(auto-trust-anchor-file|trust-anchor-file):' /etc/unbound/unbound.conf /etc/unbound/unbound.conf.d/ 2>/dev/null; then
+  log_info "DNSSEC trust anchor already defined in OS package configuration; omitting duplicate directive."
+else
+  ANCHOR_DIRECTIVE="  auto-trust-anchor-file: \"/var/lib/unbound/root.key\""
+fi
+
+cat > /etc/unbound/unbound.conf.d/wallrose.conf << EOF
 server:
   interface: 10.8.0.1
   interface: 10.9.0.1
@@ -629,7 +640,7 @@ server:
   access-control: 10.8.0.0/24 allow
   access-control: 10.9.0.0/24 allow
   access-control: 127.0.0.1 allow
-  auto-trust-anchor-file: "/var/lib/unbound/root.key"
+${ANCHOR_DIRECTIVE}
   hide-identity: yes
   hide-version: yes
   qname-minimisation: yes
@@ -641,8 +652,37 @@ forward-zone:
   forward-addr: 1.1.1.1@853#cloudflare-dns.com
 EOF
 
+# Clean empty lines resulting from empty ANCHOR_DIRECTIVE
+sed -i '/^[[:space:]]*$/d' /etc/unbound/unbound.conf.d/wallrose.conf
+
+# Rigorous config syntax verification using unbound-checkconf
+if command -v unbound-checkconf &>/dev/null; then
+  log_info "Validating Unbound configuration with unbound-checkconf..."
+  CHECK_ERR=$(unbound-checkconf /etc/unbound/unbound.conf 2>&1 || true)
+  if echo "$CHECK_ERR" | grep -qi "trust anchor for '.' presented twice"; then
+    log_warn "Duplicate trust anchor detected by unbound-checkconf; stripping auto-trust-anchor-file from wallrose.conf..."
+    sed -i '/auto-trust-anchor-file:/d' /etc/unbound/unbound.conf.d/wallrose.conf
+    CHECK_ERR=$(unbound-checkconf /etc/unbound/unbound.conf 2>&1 || true)
+  fi
+
+  if ! unbound-checkconf /etc/unbound/unbound.conf &>/dev/null; then
+    log_err "unbound-checkconf syntax validation failed:\n$CHECK_ERR"
+  else
+    log_ok "Unbound configuration syntax validated successfully."
+  fi
+fi
+
 systemctl enable --now unbound 2>/dev/null || true
 systemctl restart unbound || log_warn "Unbound restart pending tunnel initialization."
+
+# Pipeline verification: confirm unbound is active and operational
+sleep 1
+if ! systemctl is-active --quiet unbound; then
+  UNBOUND_JOURNAL=$(journalctl -u unbound -n 30 --no-pager 2>/dev/null || systemctl status unbound --no-pager -l 2>&1 || true)
+  log_err "Unbound failed to start after deployment. Service diagnostics:\n$UNBOUND_JOURNAL"
+else
+  log_ok "Unbound DNS resolver is active and operational."
+fi
 
 # 8. Netfilter Firewall & MSS Clamping (NO Port Hopping)
 log_info "Configuring iptables NAT and MSS Clamping..."
@@ -874,6 +914,16 @@ systemctl enable --now awg0-go || true
 systemctl enable --now awg1-go || true
 systemctl enable --now hysteria-server || true
 systemctl enable --now wallrose-panel
+
+# Final service health verification
+sleep 2
+for svc in unbound awg0-go awg1-go hysteria-server wallrose-panel; do
+  if systemctl is-active --quiet "$svc" 2>/dev/null; then
+    log_ok "Service '$svc' is active and running."
+  else
+    log_warn "Service '$svc' is not active (state: $(systemctl is-active "$svc" 2>/dev/null || echo "unknown"))."
+  fi
+done
 
 # 11. Final Verification & Output
 sleep 2

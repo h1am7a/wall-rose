@@ -40,6 +40,7 @@ UNIT_MAP = {
     "awg0": "awg0-go",
     "awg1": "awg1-go",
     "hy2": "hysteria-server",
+    "unbound": "unbound",
 }
 
 

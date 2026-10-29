@@ -136,12 +136,51 @@ def test_bug_d_unbound_anchor_and_root_key_validator():
     assert "unbound-anchor -a /var/lib/unbound/root.key" in content
     assert "cp /usr/share/dns/root.key /var/lib/unbound/root.key" in content
     assert "chown -R unbound:unbound /var/lib/unbound" in content
-    assert 'auto-trust-anchor-file: "/var/lib/unbound/root.key"' in content
+    assert 'auto-trust-anchor-file: \\"/var/lib/unbound/root.key\\"' in content
 
     # 3. Enabled and started
     assert "systemctl enable --now unbound" in content
 
-def test_bug_d_allowed_services_includes_unbound():
-    """BUG-D: Verify ALLOWED_SERVICES in system router allows unbound logs."""
+def test_bug_d_unbound_deduplication_and_checkconf():
+    """BUG-D: Verify that install.sh deduplicates auto-trust-anchor-file and runs unbound-checkconf."""
+    content = INSTALL_SH_PATH.read_text(encoding="utf-8")
+
+    # 1. Deduplication check before writing wallrose.conf
+    assert "auto-trust-anchor-file|trust-anchor-file" in content
+    assert "DNSSEC trust anchor already defined in OS package configuration" in content
+
+    # 2. unbound-checkconf validation
+    assert "unbound-checkconf /etc/unbound/unbound.conf" in content
+    assert "trust anchor for '.' presented twice" in content
+    assert "stripping auto-trust-anchor-file from wallrose.conf" in content
+
+    # 3. Pipeline verification
+    assert "systemctl is-active --quiet unbound" in content
+
+def test_bug_d_simulation_deduplication_logic():
+    """Simulate OS package providing root-auto-trust-anchor-file.conf vs clean environment."""
+    # Scenario A: OS package config already has auto-trust-anchor-file
+    os_package_conf = """
+    server:
+        auto-trust-anchor-file: "/var/lib/unbound/root.key"
+    """
+    has_anchor_a = bool(re.search(r'^\s*(auto-trust-anchor-file|trust-anchor-file):', os_package_conf, re.MULTILINE))
+    assert has_anchor_a is True
+
+    # Scenario B: Clean environment without OS package anchor
+    clean_conf = """
+    server:
+        interface: 127.0.0.1
+        port: 53
+    """
+    has_anchor_b = bool(re.search(r'^\s*(auto-trust-anchor-file|trust-anchor-file):', clean_conf, re.MULTILINE))
+    assert has_anchor_b is False
+
+def test_bug_d_allowed_services_and_journal_watch_includes_unbound():
+    """BUG-D: Verify ALLOWED_SERVICES in system router and UNIT_MAP in journal_watch allow/monitor unbound."""
+    from app.journal_watch import UNIT_MAP
     assert "unbound" in ALLOWED_SERVICES
     assert ALLOWED_SERVICES["unbound"] == "unbound"
+
+    assert "unbound" in UNIT_MAP
+    assert UNIT_MAP["unbound"] == "unbound"
