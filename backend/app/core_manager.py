@@ -5,6 +5,7 @@ import subprocess
 import socket
 import base64
 import logging
+import sqlite3
 from typing import Dict, Any, Optional, Tuple, List
 
 from cryptography.hazmat.primitives.asymmetric import x25519
@@ -147,12 +148,210 @@ def parse_awg_conf_peers(conf_path: str) -> Tuple[List[str], List[Dict[str, str]
 
     return interface_lines, peers
 
-def write_awg_conf(conf_path: str, interface_lines: List[str], peers: List[Dict[str, str]]):
+def get_canonical_awg_port(interface: str) -> int:
+    """
+    Returns the canonical ListenPort for an interface from settings (.env) / DB,
+    preventing configuration drift.
+    If settings/.env or DB has a configured port (>0), that port is canonical.
+    Otherwise, falls back to the port declared in the interface config file or default.
+    """
+    is_awg1 = interface in ("awg1", getattr(settings, "AWG1_INTERFACE", "awg1"))
+    
+    # 1. Check settings / .env
+    env_port = int(getattr(settings, "AWG1_PORT" if is_awg1 else "AWG0_PORT", 0) or 0)
+    if env_port > 0:
+        return env_port
+
+    # 2. Check SQLite DB cores table
+    db_path = getattr(settings, "DATABASE_PATH", None)
+    if not db_path:
+        db_url = getattr(settings, "DATABASE_URL", "")
+        if db_url.startswith("sqlite+aiosqlite:///"):
+            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+        elif db_url.startswith("sqlite:///"):
+            db_path = db_url.replace("sqlite:///", "")
+
+    if db_path and os.path.isfile(db_path):
+        try:
+            conn = sqlite3.connect(db_path, timeout=1.0)
+            cur = conn.cursor()
+            cur.execute("SELECT port FROM cores WHERE id = ?", ("awg1" if is_awg1 else "awg0",))
+            row = cur.fetchone()
+            conn.close()
+            if row and row[0] and int(row[0]) > 0:
+                return int(row[0])
+        except Exception:
+            pass
+
+    # 3. Fallback to existing on-disk file port
+    conf_path = get_awg_conf_path(interface)
+    if os.path.isfile(conf_path):
+        try:
+            with open(conf_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if stripped.startswith("[Peer]"):
+                        break
+                    if stripped.lower().startswith("listenport"):
+                        parts = stripped.split("=", 1)
+                        if len(parts) == 2 and parts[1].strip().isdigit():
+                            fp = int(parts[1].strip())
+                            if fp > 0:
+                                return fp
+        except Exception:
+            pass
+
+    return 56576 if is_awg1 else 56575
+
+def get_canonical_awg_port_for_path(conf_path: str) -> int:
+    base = os.path.basename(conf_path).lower()
+    if "awg1" in base or conf_path == getattr(settings, "AWG1_CONFIG_PATH", ""):
+        return get_canonical_awg_port("awg1")
+    return get_canonical_awg_port("awg0")
+
+def load_peers_from_db_sync() -> Optional[List[Dict[str, Any]]]:
+    """
+    Direct synchronous read of active peers from the SQLite database.
+    Ensures live_add_awg_peer / live_remove_awg_peer never drop peers even when called without db_peers.
+    """
+    db_path = getattr(settings, "DATABASE_PATH", None)
+    if not db_path:
+        db_url = getattr(settings, "DATABASE_URL", "")
+        if db_url.startswith("sqlite+aiosqlite:///"):
+            db_path = db_url.replace("sqlite+aiosqlite:///", "")
+        elif db_url.startswith("sqlite:///"):
+            db_path = db_url.replace("sqlite:///", "")
+
+    if not db_path or not os.path.isfile(db_path):
+        return None
+
+    try:
+        conn = sqlite3.connect(db_path, timeout=2.0)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, awg0_pubkey, awg0_ip, awg0_psk, awg1_pubkey, awg1_ip, awg1_psk, status FROM peers")
+        rows = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+        return rows
+    except Exception as e:
+        logger.debug(f"Notice reading peers from SQLite DB: {e}")
+        return None
+
+def build_awg_peer_list(
+    interface: str,
+    db_peers: Optional[List[Any]] = None,
+    disk_peers: Optional[List[Dict[str, str]]] = None,
+    public_key_to_add: Optional[str] = None,
+    allowed_ip_to_add: Optional[str] = None,
+    preshared_key_to_add: Optional[str] = None,
+    public_key_to_remove: Optional[str] = None,
+) -> List[Dict[str, str]]:
+    """
+    Builds the authoritative list of peers for an interface:
+    - Primary source of truth is the database (db_peers or load_peers_from_db_sync).
+    - Falls back to disk_peers only if database is completely inaccessible.
+    - Prevents peer loss when an on-disk config was truncated or damaged.
+    """
+    is_awg1 = interface in ("awg1", getattr(settings, "AWG1_INTERFACE", "awg1"))
+    source_db_peers = db_peers
+    if source_db_peers is None:
+        source_db_peers = load_peers_from_db_sync()
+
+    peers_map: Dict[str, Dict[str, str]] = {}
+
+    if source_db_peers is not None:
+        for p in source_db_peers:
+            if isinstance(p, dict):
+                st = p.get("status")
+                pub = p.get("awg1_pubkey") if is_awg1 else p.get("awg0_pubkey")
+                ip = p.get("awg1_ip") if is_awg1 else p.get("awg0_ip")
+                psk = p.get("awg1_psk") if is_awg1 else p.get("awg0_psk")
+            else:
+                st = getattr(p, "status", "ACTIVE")
+                pub = getattr(p, "awg1_pubkey") if is_awg1 else getattr(p, "awg0_pubkey")
+                ip = getattr(p, "awg1_ip") if is_awg1 else getattr(p, "awg0_ip")
+                psk = getattr(p, "awg1_psk", None) if is_awg1 else getattr(p, "awg0_psk", None)
+
+            if not pub:
+                continue
+            if st == "SUSPENDED":
+                continue
+            if public_key_to_remove and pub == public_key_to_remove:
+                continue
+
+            clean_ip = f"{ip}/32" if ip and not ip.endswith("/32") else (ip or "")
+            entry: Dict[str, str] = {
+                "PublicKey": pub,
+                "AllowedIPs": clean_ip,
+            }
+            if psk:
+                entry["PresharedKey"] = psk
+            peers_map[pub] = entry
+    elif disk_peers is not None:
+        for dp in disk_peers:
+            pub = dp.get("PublicKey")
+            if pub and (not public_key_to_remove or pub != public_key_to_remove):
+                peers_map[pub] = dict(dp)
+
+    # Apply additions / updates
+    if public_key_to_add:
+        if not public_key_to_remove or public_key_to_add != public_key_to_remove:
+            clean_ip = f"{allowed_ip_to_add}/32" if allowed_ip_to_add and not allowed_ip_to_add.endswith("/32") else (allowed_ip_to_add or "")
+            entry = {
+                "PublicKey": public_key_to_add,
+                "AllowedIPs": clean_ip,
+            }
+            if preshared_key_to_add:
+                entry["PresharedKey"] = preshared_key_to_add
+            peers_map[public_key_to_add] = entry
+
+    if public_key_to_remove:
+        peers_map.pop(public_key_to_remove, None)
+
+    return list(peers_map.values())
+
+def write_awg_conf(
+    conf_path: str,
+    interface_lines: List[str],
+    peers: List[Dict[str, str]],
+    canonical_port: Optional[int] = None
+):
     """
     Atomically writes the interface section and peers back to the configuration file.
+    Enforces canonical ListenPort from settings/DB, eliminating port drift.
     """
+    if canonical_port is None:
+        canonical_port = get_canonical_awg_port_for_path(conf_path)
+
+    # Normalize [Interface] section lines: enforce canonical ListenPort
+    normalized_iface: List[str] = []
+    has_listen_port = False
+
+    for line in interface_lines:
+        stripped = line.strip()
+        if "=" in stripped:
+            k, v = stripped.split("=", 1)
+            if k.strip().lower() == "listenport":
+                if canonical_port is not None:
+                    normalized_iface.append(f"ListenPort = {canonical_port}")
+                    has_listen_port = True
+                    continue
+        normalized_iface.append(line)
+
+    if not has_listen_port and canonical_port is not None:
+        inserted = False
+        new_lines = []
+        for line in normalized_iface:
+            new_lines.append(line)
+            if line.strip().lower() == "[interface]" and not inserted:
+                new_lines.append(f"ListenPort = {canonical_port}")
+                inserted = True
+        if not inserted:
+            new_lines.insert(0, f"ListenPort = {canonical_port}")
+        normalized_iface = new_lines
+
     out: List[str] = []
-    out.extend(interface_lines)
+    out.extend(normalized_iface)
     if out and out[-1].strip() != "":
         out.append("")
 
@@ -216,58 +415,122 @@ def live_add_awg_peer(
     interface: str,
     public_key: str,
     allowed_ip: str,
-    preshared_key: Optional[str] = None
+    preshared_key: Optional[str] = None,
+    db_peers: Optional[List[Any]] = None
 ) -> bool:
     """
     Registers a peer into the userspace AmneziaWG configuration file
     and instructs the amneziawg-go daemon to reload.
+    Reconciles with canonical database peers to prevent peer loss.
     """
     conf_path = get_awg_conf_path(interface)
+    canonical_port = get_canonical_awg_port(interface)
 
     if is_linux_and_root() or os.path.isfile(conf_path):
         try:
-            iface_lines, peers = parse_awg_conf_peers(conf_path)
-            # Find existing peer or append
-            existing = next((p for p in peers if p.get("PublicKey") == public_key), None)
-            if existing:
-                existing["AllowedIPs"] = f"{allowed_ip}/32"
-                if preshared_key:
-                    existing["PresharedKey"] = preshared_key
-            else:
-                new_peer = {
-                    "PublicKey": public_key,
-                    "AllowedIPs": f"{allowed_ip}/32",
-                }
-                if preshared_key:
-                    new_peer["PresharedKey"] = preshared_key
-                peers.append(new_peer)
+            iface_lines, disk_peers = parse_awg_conf_peers(conf_path)
 
-            write_awg_conf(conf_path, iface_lines, peers)
-            logger.info(f"Synchronized peer {public_key[:8]} to {conf_path}")
+            # Reconstruct complete peer list anchored to DB
+            reconciled_peers = build_awg_peer_list(
+                interface=interface,
+                db_peers=db_peers,
+                disk_peers=disk_peers,
+                public_key_to_add=public_key,
+                allowed_ip_to_add=allowed_ip,
+                preshared_key_to_add=preshared_key
+            )
+
+            if len(disk_peers) < len(reconciled_peers) - 1:
+                logger.warning(
+                    f"Peer recovery for {interface}: disk file only had {len(disk_peers)} peers, "
+                    f"reconciled to {len(reconciled_peers)} peers from DB."
+                )
+
+            write_awg_conf(conf_path, iface_lines, reconciled_peers, canonical_port=canonical_port)
+            logger.info(f"Synchronized peer {public_key[:8]} to {conf_path} (total peers: {len(reconciled_peers)})")
         except Exception as e:
             logger.error(f"Failed to update userspace conf {conf_path}: {e}")
 
     reload_awg_service(interface)
     return True
 
-def live_remove_awg_peer(interface: str, public_key: str) -> bool:
+def live_remove_awg_peer(
+    interface: str,
+    public_key: str,
+    db_peers: Optional[List[Any]] = None
+) -> bool:
     """
     Removes a peer from the userspace configuration file and triggers daemon reload.
+    Reconciles with canonical database peers to prevent peer loss.
     """
     conf_path = get_awg_conf_path(interface)
+    canonical_port = get_canonical_awg_port(interface)
 
     if is_linux_and_root() or os.path.isfile(conf_path):
         try:
-            iface_lines, peers = parse_awg_conf_peers(conf_path)
-            filtered = [p for p in peers if p.get("PublicKey") != public_key]
-            if len(filtered) != len(peers):
-                write_awg_conf(conf_path, iface_lines, filtered)
-                logger.info(f"Purged peer {public_key[:8]} from {conf_path}")
+            iface_lines, disk_peers = parse_awg_conf_peers(conf_path)
+
+            reconciled_peers = build_awg_peer_list(
+                interface=interface,
+                db_peers=db_peers,
+                disk_peers=disk_peers,
+                public_key_to_remove=public_key
+            )
+
+            write_awg_conf(conf_path, iface_lines, reconciled_peers, canonical_port=canonical_port)
+            logger.info(f"Purged peer {public_key[:8]} from {conf_path} (remaining peers: {len(reconciled_peers)})")
         except Exception as e:
             logger.error(f"Failed removing peer from {conf_path}: {e}")
 
     reload_awg_service(interface)
     return True
+
+def reconcile_awg_configurations(db_peers: Optional[List[Any]] = None) -> None:
+    """
+    Brings on-disk AWG configuration files to the canonical state on startup:
+    - Normalizes ListenPort to canonical port from settings / .env.
+    - Synchronizes all active DB peers to prevent loss from truncated or corrupted files.
+    """
+    for iface in [getattr(settings, "AWG0_INTERFACE", "awg0"), getattr(settings, "AWG1_INTERFACE", "awg1")]:
+        conf_path = get_awg_conf_path(iface)
+        canonical_port = get_canonical_awg_port(iface)
+
+        if os.path.isfile(conf_path):
+            try:
+                iface_lines, disk_peers = parse_awg_conf_peers(conf_path)
+
+                file_port = None
+                for line in iface_lines:
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        if k.strip().lower() == "listenport" and v.strip().isdigit():
+                            file_port = int(v.strip())
+                            break
+
+                reconciled_peers = build_awg_peer_list(
+                    interface=iface,
+                    db_peers=db_peers,
+                    disk_peers=disk_peers
+                )
+
+                needs_write = False
+                if file_port != canonical_port:
+                    logger.warning(
+                        f"Reconciling {iface}: ListenPort on disk ({file_port}) diverges from canonical port ({canonical_port}). Correcting to canon."
+                    )
+                    needs_write = True
+
+                if len(disk_peers) != len(reconciled_peers):
+                    logger.warning(
+                        f"Reconciling {iface}: Disk has {len(disk_peers)} peers, DB has {len(reconciled_peers)}. Synchronizing full peer set from DB."
+                    )
+                    needs_write = True
+
+                if needs_write:
+                    write_awg_conf(conf_path, iface_lines, reconciled_peers, canonical_port=canonical_port)
+                    logger.info(f"Successfully brought {conf_path} to canonical state.")
+            except Exception as e:
+                logger.error(f"Error during startup reconciliation of {conf_path}: {e}")
 
 def query_uapi_socket(interface: str) -> Dict[str, Dict[str, Any]]:
     """
@@ -520,7 +783,7 @@ def get_awg_server_params(interface: str) -> Dict[str, Any]:
         # Trinity etalon defaults for AWG1-v3
         params: Dict[str, Any] = {
             "version": 3,
-            "port": settings.AWG1_PORT,
+            "port": get_canonical_awg_port("awg1"),
             "jc": int(settings.AWG1_JC),
             "jmin": int(settings.AWG1_JMIN),
             "jmax": int(settings.AWG1_JMAX),
@@ -546,7 +809,7 @@ def get_awg_server_params(interface: str) -> Dict[str, Any]:
         # Trinity etalon defaults for AWG0-v2
         params = {
             "version": 2,
-            "port": settings.AWG0_PORT,
+            "port": get_canonical_awg_port("awg0"),
             "jc": int(settings.AWG0_JC),
             "jmin": int(settings.AWG0_JMIN),
             "jmax": int(settings.AWG0_JMAX),
@@ -573,7 +836,14 @@ def get_awg_server_params(interface: str) -> Dict[str, Any]:
                         k_lower = k.strip().lower()
                         v_val = v.strip()
                         if k_lower == "listenport" and v_val.isdigit():
-                            params["port"] = int(v_val)
+                            file_port = int(v_val)
+                            canonical_port = params["port"]
+                            if file_port != canonical_port:
+                                logger.warning(
+                                    f"Port drift detected in {conf_path}: file has ListenPort={file_port}, "
+                                    f"canonical port is {canonical_port}. Enforcing canonical port."
+                                )
+                            # Note: Never overwrite params["port"] with divergent file port (anchor to canon)
                         elif k_lower == "jc" and v_val.isdigit():
                             params["jc"] = int(v_val)
                         elif k_lower == "jmin" and v_val.isdigit():

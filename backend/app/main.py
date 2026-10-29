@@ -10,7 +10,7 @@ from sqlalchemy import select
 from app.config import STATIC_DIR
 from app.database import init_db, AsyncSessionLocal
 from app.models import Peer
-from app.core_manager import auth_cache
+from app.core_manager import auth_cache, reconcile_awg_configurations
 from app.traffic_aggregator import run_sync_loop
 from app.journal_watch import run_journal_watch_loop
 
@@ -75,6 +75,9 @@ async def lifespan(app: FastAPI):
         peers_list = (await session.execute(select(Peer))).scalars().all()
         for p in peers_list:
             auth_cache.set_user(p.hy2_user, p.hy2_pass, p.status)
+
+        # Enforce canonical ports and full peer set from DB on startup
+        reconcile_awg_configurations(db_peers=peers_list)
 
     # Spawn background workers (traffic aggregator 30s, protocol watcher 30s)
     aggregator_task = asyncio.create_task(run_sync_loop(interval=30))

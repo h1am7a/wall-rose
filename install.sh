@@ -86,9 +86,16 @@ if [[ "$OS_ID" == "ubuntu" ]]; then
   else
     log_info "Amnezia PPA repository already registered, skipping duplicate add."
   fi
-  apt-get install -y amneziawg-tools wireguard-tools || true
+
+  # Purge conflicting amneziawg-dkms module if present to guarantee userspace amneziawg-go operates
+  if dpkg -l amneziawg-dkms 2>/dev/null | grep -q '^ii'; then
+    log_info "Purging conflicting amneziawg-dkms to preserve userspace engine..."
+    apt-get purge -y amneziawg-dkms || true
+  fi
+
+  apt-get install -o APT::Install-Recommends=false -y --no-install-recommends amneziawg-tools wireguard-tools || true
 else
-  apt-get install -y wireguard-tools || true
+  apt-get install -o APT::Install-Recommends=false -y --no-install-recommends wireguard-tools || true
 fi
 
 # 3. Kernel Sysctl Network & BBR Tuning
@@ -128,7 +135,7 @@ fi
 # If binary is missing, compile amneziawg-go from official source
 if ! command -v amneziawg-go &>/dev/null && [[ ! -f /usr/local/bin/amneziawg-go && ! -f /usr/local/bin/amneziawg-go-official ]]; then
   log_info "Compiling amneziawg-go userspace binary from official repository..."
-  apt-get install -y golang-go make git || true
+  apt-get install -o APT::Install-Recommends=false -y --no-install-recommends golang-go make git || true
   TMP_GO_DIR=$(mktemp -d)
   if git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-go.git "$TMP_GO_DIR" 2>/dev/null; then
     (cd "$TMP_GO_DIR" && make && cp amneziawg-go /usr/local/bin/amneziawg-go && chmod +x /usr/local/bin/amneziawg-go) || true

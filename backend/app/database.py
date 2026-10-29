@@ -103,6 +103,15 @@ async def init_db():
                 ),
             ]
             session.add_all(cores)
+        else:
+            # Enforce single source of truth: align ProtocolCore ports with settings (.env)
+            for c in existing_cores:
+                if c.core_id == "awg0" and settings.AWG0_PORT > 0 and c.port != settings.AWG0_PORT:
+                    c.port = settings.AWG0_PORT
+                elif c.core_id == "awg1" and settings.AWG1_PORT > 0 and c.port != settings.AWG1_PORT:
+                    c.port = settings.AWG1_PORT
+                elif c.core_id == "hy2" and settings.HY2_PORT > 0 and c.port != settings.HY2_PORT:
+                    c.port = settings.HY2_PORT
 
         # Seed initial setting if not present
         existing_setting = (await session.execute(select(Setting).where(Setting.key == "server_ip"))).scalar_one_or_none()

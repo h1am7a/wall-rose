@@ -278,3 +278,8 @@ def test_install_script_compliance():
 
     # 4. WARNING-4: Must NOT contain non-existent LOGGING_IPV4_MASK
     assert "LOGGING_IPV4_MASK" not in content, "LOGGING_IPV4_MASK must NOT be present in install.sh"
+
+    # 5. Pure userspace amneziawg-go: amneziawg-tools must not pull in dkms recommends
+    assert "APT::Install-Recommends=false" in content, "install.sh must prevent recommended packages for amneziawg-tools"
+    assert "--no-install-recommends" in content, "install.sh must use --no-install-recommends"
+    assert "purge -y amneziawg-dkms" in content, "install.sh must purge conflicting amneziawg-dkms module"

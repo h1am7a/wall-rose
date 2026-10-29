@@ -170,9 +170,10 @@ async def create_peer(
         await db.commit()
         await db.refresh(peer)
 
-        # Zero-downtime registration in running kernel interfaces
-        live_add_awg_peer(settings.AWG1_INTERFACE, awg1_pub, ip_awg1, awg1_psk)
-        live_add_awg_peer(settings.AWG0_INTERFACE, awg0_pub, ip_awg0, awg0_psk)
+        # Zero-downtime registration in running kernel interfaces with full DB peer recovery
+        all_peers = (await db.execute(select(Peer))).scalars().all()
+        live_add_awg_peer(settings.AWG1_INTERFACE, awg1_pub, ip_awg1, awg1_psk, db_peers=all_peers)
+        live_add_awg_peer(settings.AWG0_INTERFACE, awg0_pub, ip_awg0, awg0_psk, db_peers=all_peers)
 
         # Register in high-speed in-memory auth cache for Hysteria 2
         auth_cache.set_user(hy2_user, hy2_pass, peer.status)
@@ -256,14 +257,15 @@ async def toggle_peer_status(
     await db.commit()
     await db.refresh(peer)
 
-    # Update kernel and auth cache
+    # Update kernel and auth cache with full DB peer recovery
+    all_peers = (await db.execute(select(Peer))).scalars().all()
     if peer.status == "SUSPENDED":
-        live_remove_awg_peer(settings.AWG0_INTERFACE, peer.awg0_pubkey)
-        live_remove_awg_peer(settings.AWG1_INTERFACE, peer.awg1_pubkey)
+        live_remove_awg_peer(settings.AWG0_INTERFACE, peer.awg0_pubkey, db_peers=all_peers)
+        live_remove_awg_peer(settings.AWG1_INTERFACE, peer.awg1_pubkey, db_peers=all_peers)
         auth_cache.set_user(peer.hy2_user, peer.hy2_pass, "SUSPENDED")
     else:
-        live_add_awg_peer(settings.AWG0_INTERFACE, peer.awg0_pubkey, peer.awg0_ip, peer.awg0_psk)
-        live_add_awg_peer(settings.AWG1_INTERFACE, peer.awg1_pubkey, peer.awg1_ip, peer.awg1_psk)
+        live_add_awg_peer(settings.AWG0_INTERFACE, peer.awg0_pubkey, peer.awg0_ip, peer.awg0_psk, db_peers=all_peers)
+        live_add_awg_peer(settings.AWG1_INTERFACE, peer.awg1_pubkey, peer.awg1_ip, peer.awg1_psk, db_peers=all_peers)
         auth_cache.set_user(peer.hy2_user, peer.hy2_pass, peer.status)
 
     client_ip = request.client.host if request.client else "unknown"
@@ -296,9 +298,10 @@ async def delete_peer(
     peer_name = peer.name
     peer_id_val = peer.id
 
-    # Remove from live interfaces
-    live_remove_awg_peer(settings.AWG0_INTERFACE, peer.awg0_pubkey)
-    live_remove_awg_peer(settings.AWG1_INTERFACE, peer.awg1_pubkey)
+    # Remove from live interfaces and sync remaining DB peers
+    remaining_peers = (await db.execute(select(Peer).where(Peer.id != peer_id))).scalars().all()
+    live_remove_awg_peer(settings.AWG0_INTERFACE, peer.awg0_pubkey, db_peers=remaining_peers)
+    live_remove_awg_peer(settings.AWG1_INTERFACE, peer.awg1_pubkey, db_peers=remaining_peers)
     auth_cache.remove_user(peer.hy2_user, peer.hy2_pass)
 
     await db.delete(peer)
