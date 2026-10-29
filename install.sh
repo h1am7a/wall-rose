@@ -63,8 +63,60 @@ if [[ -z "$WAN_IF" ]]; then
   WAN_IF=$(ip link | awk -F: '$0 !~ "lo|vir|wl|^[^0-9]"{print $2;getline}' | head -n1 | tr -d ' ')
 fi
 
-PUBLIC_IP=$(curl -s4 https://api.ipify.org || curl -s4 https://ifconfig.me || echo "127.0.0.1")
-log_ok "WAN Interface: $WAN_IF | Public IP: $PUBLIC_IP"
+# Resolve Public IP: respect manual override, check for working /32 alias, or query external services
+if [[ -n "${SERVER_PUBLIC_IP:-}" ]]; then
+  PUBLIC_IP="$SERVER_PUBLIC_IP"
+  log_info "Using user-specified SERVER_PUBLIC_IP: $PUBLIC_IP"
+elif [[ -n "${PUBLIC_IP:-}" ]]; then
+  PUBLIC_IP="$PUBLIC_IP"
+  log_info "Using user-specified PUBLIC_IP: $PUBLIC_IP"
+else
+  # Inspect WAN interface for public IP alias (/32 or non-RFC1918)
+  # Standard cloud/VPS alias configuration (secondary failover IP)
+  ALIAS_IP=$(ip -4 addr show ${WAN_IF:+dev "$WAN_IF"} 2>/dev/null | awk '
+    $1 == "inet" {
+      split($2, a, "/");
+      ip = a[1];
+      mask = a[2];
+      # Exclude RFC1918 / Loopback / CGNAT / Link-local
+      if (ip ~ /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.|100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\.)/) {
+        next;
+      }
+      if (mask == "32") {
+        print ip;
+        exit;
+      }
+    }
+  ')
+
+  # Query external IP services with short timeout
+  EXT_IP=$(curl -fs4 --max-time 4 https://api.ipify.org 2>/dev/null || \
+           curl -fs4 --max-time 4 https://icanhazip.com 2>/dev/null || \
+           curl -fs4 --max-time 4 https://ifconfig.me 2>/dev/null || true)
+  EXT_IP=$(echo "$EXT_IP" | tr -d '[:space:]')
+
+  if [[ -n "$ALIAS_IP" ]]; then
+    PUBLIC_IP="$ALIAS_IP"
+    log_info "Detected working public IP alias (/32): $PUBLIC_IP"
+  elif [[ -n "$EXT_IP" && "$EXT_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    PUBLIC_IP="$EXT_IP"
+  else
+    # Fallback to first non-private IP on WAN interface
+    DEV_IP=$(ip -4 addr show ${WAN_IF:+dev "$WAN_IF"} 2>/dev/null | awk '
+      $1 == "inet" {
+        split($2, a, "/");
+        ip = a[1];
+        if (ip !~ /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.|100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\.)/) {
+          print ip;
+          exit;
+        }
+      }
+    ')
+    PUBLIC_IP="${DEV_IP:-127.0.0.1}"
+  fi
+fi
+
+log_ok "WAN Interface: ${WAN_IF:-unknown} | Public IP: $PUBLIC_IP"
 
 # 2. System Packages & Prerequisites (Pure Userspace — NO kernel modules / dkms)
 log_info "Updating system package repositories..."
@@ -74,7 +126,7 @@ apt-get install -y --no-install-recommends \
   curl wget git tar gzip openssl \
   python3 python3-pip python3-venv python3-setuptools python3-cryptography \
   iptables iptables-persistent netfilter-persistent \
-  unbound qrencode ca-certificates gnupg \
+  unbound unbound-anchor dns-root-data qrencode ca-certificates gnupg \
   software-properties-common build-essential || true
 
 if [[ "$OS_ID" == "ubuntu" ]]; then
@@ -255,7 +307,9 @@ log_info "Generating cryptographically random server parameters and configuratio
 mkdir -p /etc/amnezia/amneziawg /etc/hysteria
 chmod 700 /etc/amnezia/amneziawg /etc/hysteria
 
+PANEL_HOST="${PANEL_HOST:-${HOST:-0.0.0.0}}"
 PANEL_PORT="${PORT:-8000}"
+export PANEL_HOST
 export PANEL_PORT
 export PUBLIC_IP
 
@@ -535,7 +589,17 @@ fi
 # 7. Unbound Local DNS Resolver (AppArmor Guard & IP Freebind)
 log_info "Configuring Unbound DoT DNS resolver (10.8.0.1 / 10.9.0.1)..."
 
-mkdir -p /etc/apparmor.d/local
+# Ensure unbound directories and DNSSEC root trust-anchor exist before validator initialization
+mkdir -p /var/lib/unbound /etc/unbound/unbound.conf.d /etc/apparmor.d/local
+if command -v unbound-anchor &>/dev/null; then
+  unbound-anchor -a /var/lib/unbound/root.key 2>/dev/null || true
+fi
+if [[ ! -f /var/lib/unbound/root.key && -f /usr/share/dns/root.key ]]; then
+  cp /usr/share/dns/root.key /var/lib/unbound/root.key 2>/dev/null || true
+fi
+chown -R unbound:unbound /var/lib/unbound 2>/dev/null || true
+chmod 644 /var/lib/unbound/root.key 2>/dev/null || true
+
 if [ ! -f /etc/apparmor.d/local/usr.sbin.unbound ]; then
   echo "capability net_admin," > /etc/apparmor.d/local/usr.sbin.unbound
 elif ! grep -q "capability net_admin" /etc/apparmor.d/local/usr.sbin.unbound; then
@@ -565,6 +629,7 @@ server:
   access-control: 10.8.0.0/24 allow
   access-control: 10.9.0.0/24 allow
   access-control: 127.0.0.1 allow
+  auto-trust-anchor-file: "/var/lib/unbound/root.key"
   hide-identity: yes
   hide-version: yes
   qname-minimisation: yes
@@ -576,6 +641,7 @@ forward-zone:
   forward-addr: 1.1.1.1@853#cloudflare-dns.com
 EOF
 
+systemctl enable --now unbound 2>/dev/null || true
 systemctl restart unbound || log_warn "Unbound restart pending tunnel initialization."
 
 # 8. Netfilter Firewall & MSS Clamping (NO Port Hopping)
@@ -584,6 +650,20 @@ log_info "Configuring iptables NAT and MSS Clamping..."
 # Purge any legacy port-hopping redirect rule
 iptables -t nat -D PREROUTING -i "$WAN_IF" -p udp --dport 20000:50000 -j REDIRECT --to-ports 4433 2>/dev/null || true
 iptables -t nat -D PREROUTING -p udp --dport 20000:50000 -j REDIRECT --to-ports 4433 2>/dev/null || true
+
+# Purge unmanaged/stale INPUT rules from previous installs
+for env_candidate in "${INSTALL_DIR:-}/backend/.env" "./backend/.env" "$HOME/wallrose/backend/.env" "/root/wallrose/backend/.env"; do
+  if [[ -f "$env_candidate" ]]; then
+    STALE_AWG0=$(grep -E '^AWG0_PORT=' "$env_candidate" 2>/dev/null | cut -d= -f2 || true)
+    STALE_AWG1=$(grep -E '^AWG1_PORT=' "$env_candidate" 2>/dev/null | cut -d= -f2 || true)
+    STALE_HY2=$(grep -E '^HY2_PORT=' "$env_candidate" 2>/dev/null | cut -d= -f2 || true)
+    STALE_PANEL=$(grep -E '^PORT=' "$env_candidate" 2>/dev/null | cut -d= -f2 || true)
+    [[ -n "$STALE_AWG0" ]] && while iptables -D INPUT -p udp --dport "$STALE_AWG0" -j ACCEPT 2>/dev/null; do :; done
+    [[ -n "$STALE_AWG1" ]] && while iptables -D INPUT -p udp --dport "$STALE_AWG1" -j ACCEPT 2>/dev/null; do :; done
+    [[ -n "$STALE_HY2" && "$STALE_HY2" != "443" ]] && while iptables -D INPUT -p udp --dport "$STALE_HY2" -j ACCEPT 2>/dev/null; do :; done
+    [[ -n "$STALE_PANEL" ]] && while iptables -D INPUT -p tcp --dport "$STALE_PANEL" -j ACCEPT 2>/dev/null; do :; done
+  fi
+done
 
 # Enable NAT Masquerade for VPN Subnets (purge duplicate entries first for true idempotency)
 while iptables -t nat -D POSTROUTING -s 10.8.0.0/24 -o "$WAN_IF" -j MASQUERADE 2>/dev/null; do :; done
@@ -598,19 +678,25 @@ iptables -t nat -A POSTROUTING -s 10.9.0.0/24 -o "$WAN_IF" -j MASQUERADE
 while iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null; do :; done
 iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 
-# Allow incoming protocol ports
-iptables -C INPUT -p udp --dport "$AWG0_PORT" -j ACCEPT 2>/dev/null || iptables -A INPUT -p udp --dport "$AWG0_PORT" -j ACCEPT 2>/dev/null || true
-iptables -C INPUT -p udp --dport "$AWG1_PORT" -j ACCEPT 2>/dev/null || iptables -A INPUT -p udp --dport "$AWG1_PORT" -j ACCEPT 2>/dev/null || true
-iptables -C INPUT -p udp --dport "$HY2_PORT" -j ACCEPT 2>/dev/null || iptables -A INPUT -p udp --dport "$HY2_PORT" -j ACCEPT 2>/dev/null || true
-iptables -C INPUT -p tcp --dport "$PANEL_PORT" -j ACCEPT 2>/dev/null || iptables -A INPUT -p tcp --dport "$PANEL_PORT" -j ACCEPT 2>/dev/null || true
+# Dedicated Wall Rose INPUT chain: flush old rules on rerun to avoid dead ports
+iptables -N WALLROSE-INPUT 2>/dev/null || true
+iptables -F WALLROSE-INPUT
+iptables -C INPUT -j WALLROSE-INPUT 2>/dev/null || iptables -I INPUT 1 -j WALLROSE-INPUT
+
+iptables -A WALLROSE-INPUT -p udp --dport "$AWG0_PORT" -m comment --comment "wallrose:awg0" -j ACCEPT
+iptables -A WALLROSE-INPUT -p udp --dport "$AWG1_PORT" -m comment --comment "wallrose:awg1" -j ACCEPT
+iptables -A WALLROSE-INPUT -p udp --dport "$HY2_PORT" -m comment --comment "wallrose:hy2" -j ACCEPT
+if [[ "$PANEL_HOST" != "127.0.0.1" && "$PANEL_HOST" != "localhost" && "$PANEL_HOST" != "::1" ]]; then
+  iptables -A WALLROSE-INPUT -p tcp --dport "$PANEL_PORT" -m comment --comment "wallrose:panel" -j ACCEPT
+fi
 
 netfilter-persistent save 2>/dev/null || true
 log_ok "Firewall rules activated and persisted."
 
 # 9. Deploy Wall Rose Python Backend
 if [[ -d "backend" && -d "static" ]]; then
-  INSTALL_DIR="${INSTALL_DIR:-$(pwd)}"
-  SOURCE_DIR="."
+  SOURCE_DIR="$(pwd -P)"
+  INSTALL_DIR="${INSTALL_DIR:-$SOURCE_DIR}"
 else
   INSTALL_DIR="${INSTALL_DIR:-$HOME/wallrose}"
   log_info "Fetching Wall Rose repository from GitHub (https://github.com/h1am7a/wall-rose)..."
@@ -619,12 +705,20 @@ else
   SOURCE_DIR="$TMP_REPO"
 fi
 
-log_info "Installing Wall Rose backend to $INSTALL_DIR..."
-mkdir -p "$INSTALL_DIR/backend/data"
-if [[ "$SOURCE_DIR" != "$INSTALL_DIR" ]]; then
-  cp -r "$SOURCE_DIR/backend"/* "$INSTALL_DIR/backend/"
-  cp -r "$SOURCE_DIR/static" "$INSTALL_DIR/"
+mkdir -p "$INSTALL_DIR/backend/data" "$INSTALL_DIR/static"
+
+# Canonicalize absolute paths to guard against self-copy
+REAL_SOURCE_DIR=$(cd "$SOURCE_DIR" 2>/dev/null && pwd -P || realpath "$SOURCE_DIR" 2>/dev/null || echo "$SOURCE_DIR")
+REAL_INSTALL_DIR=$(cd "$INSTALL_DIR" 2>/dev/null && pwd -P || realpath -m "$INSTALL_DIR" 2>/dev/null || echo "$INSTALL_DIR")
+
+log_info "Installing Wall Rose backend to $REAL_INSTALL_DIR..."
+if [[ "$REAL_SOURCE_DIR" != "$REAL_INSTALL_DIR" ]]; then
+  cp -r "$REAL_SOURCE_DIR/backend/." "$REAL_INSTALL_DIR/backend/"
+  cp -r "$REAL_SOURCE_DIR/static/." "$REAL_INSTALL_DIR/static/"
+else
+  log_info "Source directory matches install directory ($REAL_INSTALL_DIR); skipping self-copy."
 fi
+
 if [[ -n "${TMP_REPO:-}" && -d "${TMP_REPO:-}" ]]; then
   rm -rf "$TMP_REPO"
 fi
@@ -649,7 +743,7 @@ fi
 
 # Single Source of Truth: write exact synchronized variables to .env
 cat > "$INSTALL_DIR/backend/.env" << EOF
-HOST=0.0.0.0
+HOST=${PANEL_HOST}
 PORT=${PANEL_PORT}
 SERVER_PUBLIC_IP=${PUBLIC_IP}
 ADMIN_PASSWORD=${ADMIN_PASS}
@@ -701,8 +795,16 @@ chmod 600 "$INSTALL_DIR/backend/.env"
 WALLROSE_CONF_DIR="${WALLROSE_CONF_DIR:-$HOME/.wallrose}"
 mkdir -p "$WALLROSE_CONF_DIR"
 CREDENTIALS_FILE="${WALLROSE_CONF_DIR}/credentials.txt"
+
+if [[ "$PANEL_HOST" == "127.0.0.1" || "$PANEL_HOST" == "localhost" || "$PANEL_HOST" == "::1" ]]; then
+  PANEL_URL="http://127.0.0.1:${PANEL_PORT}/ (loopback-only; use SSH tunnel or reverse proxy)"
+else
+  PANEL_URL="http://${PUBLIC_IP}:${PANEL_PORT}/"
+fi
+
 cat > "$CREDENTIALS_FILE" << EOF
-URL: http://${PUBLIC_IP}:${PANEL_PORT}/
+URL: ${PANEL_URL}
+HOST: ${PANEL_HOST}
 MASTER_PASSWORD: ${ADMIN_PASS}
 HYSTERIA_PORT: ${HY2_PORT}
 HYSTERIA_GECKO_KEY: ${GECKO_OBFS_KEY}
@@ -735,7 +837,10 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=${INSTALL_DIR}/backend
-ExecStart=${INSTALL_DIR}/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PANEL_PORT} --no-access-log
+Environment="HOST=${PANEL_HOST}"
+Environment="PORT=${PANEL_PORT}"
+EnvironmentFile=-${INSTALL_DIR}/backend/.env
+ExecStart=${INSTALL_DIR}/venv/bin/uvicorn app.main:app --host \${HOST} --port \${PORT} --no-access-log
 Restart=always
 RestartSec=3
 LimitNOFILE=65535
@@ -764,6 +869,7 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
+systemctl enable --now unbound 2>/dev/null || true
 systemctl enable --now awg0-go || true
 systemctl enable --now awg1-go || true
 systemctl enable --now hysteria-server || true
@@ -777,10 +883,11 @@ echo ""
 echo -e "${CLR_GREEN}========================================================================${CLR_RESET}"
 echo -e "${CLR_BOLD}Wall Rose (ウォール・ローゼ) VPN Gateway successfully deployed!${CLR_RESET}"
 echo -e "${CLR_GREEN}========================================================================${CLR_RESET}"
-echo -e "  ${CLR_YELLOW}Web Panel UI:${CLR_RESET}        http://${PUBLIC_IP}:${PANEL_PORT}/"
+echo -e "  ${CLR_YELLOW}Web Panel UI:${CLR_RESET}        ${PANEL_URL}"
+echo -e "  ${CLR_YELLOW}Bind Host:${CLR_RESET}           ${PANEL_HOST}"
 echo -e "  ${CLR_YELLOW}Master Password:${CLR_RESET}     ${ADMIN_PASS}"
 echo -e "  ${CLR_CYAN}Auth Note:${CLR_RESET}           No username required (single master password entry)"
-echo -e "  ${CLR_YELLOW}OpenAPI Spec:${CLR_RESET}        http://${PUBLIC_IP}:${PANEL_PORT}/docs"
+echo -e "  ${CLR_YELLOW}OpenAPI Spec:${CLR_RESET}        http://${PANEL_HOST}:${PANEL_PORT}/docs"
 echo -e "  ${CLR_CYAN}Saved Creds:${CLR_RESET}          ${CREDENTIALS_FILE} (chmod 600)"
 echo -e "${CLR_GREEN}========================================================================${CLR_RESET}"
 echo ""

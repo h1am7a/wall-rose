@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from sqlalchemy import select
 
-from app.config import STATIC_DIR
+from app.config import STATIC_DIR, settings
 from app.database import init_db, AsyncSessionLocal
 from app.models import Peer
 from app.core_manager import auth_cache, reconcile_awg_configurations
@@ -148,3 +148,7 @@ if static_path.exists():
         if fav.exists():
             return FileResponse(str(fav), media_type="image/svg+xml")
         return Response(status_code=404)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host=settings.HOST, port=settings.PORT, access_log=False)

@@ -24,6 +24,7 @@ ALLOWED_SERVICES = {
     "hy2": "hysteria-server",
     "awg0": "awg0-go",
     "awg1": "awg1-go",
+    "unbound": "unbound",
     "wallrose-panel": "wallrose-panel",
     "hysteria-server": "hysteria-server",
     "awg0-go": "awg0-go",

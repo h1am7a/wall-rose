@@ -113,9 +113,11 @@ async def init_db():
                 elif c.core_id == "hy2" and settings.HY2_PORT > 0 and c.port != settings.HY2_PORT:
                     c.port = settings.HY2_PORT
 
-        # Seed initial setting if not present
+        # Seed or sync initial setting
         existing_setting = (await session.execute(select(Setting).where(Setting.key == "server_ip"))).scalar_one_or_none()
         if not existing_setting:
             session.add(Setting(key="server_ip", value=settings.SERVER_PUBLIC_IP, description="Public IPv4 of the server"))
+        elif settings.SERVER_PUBLIC_IP and settings.SERVER_PUBLIC_IP != "127.0.0.1" and existing_setting.value != settings.SERVER_PUBLIC_IP:
+            existing_setting.value = settings.SERVER_PUBLIC_IP
 
         await session.commit()

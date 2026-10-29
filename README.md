@@ -75,8 +75,22 @@ curl -fsSL https://raw.githubusercontent.com/h1am7a/wall-rose/main/install.sh | 
 ### Environment Variable Overrides
 
 ```bash
+# Example 1: Custom port and admin password
 PORT=8000 ADMIN_PASSWORD="your_custom_password" curl -fsSL https://raw.githubusercontent.com/h1am7a/wall-rose/main/install.sh | sudo -E bash
+
+# Example 2: Bind panel to loopback only (127.0.0.1) for reverse proxy or SSH tunnel access
+HOST=127.0.0.1 curl -fsSL https://raw.githubusercontent.com/h1am7a/wall-rose/main/install.sh | sudo -E bash
+
+# Example 3: Explicit public IP override for client subscriptions (e.g. cloud /32 alias)
+SERVER_PUBLIC_IP=198.51.100.2 bash install.sh
 ```
+
+| Variable | Default | Description |
+|---|---|---|
+| `HOST` / `PANEL_HOST` | `0.0.0.0` | Bind address for web panel (`0.0.0.0` for all interfaces or `127.0.0.1` for loopback-only) |
+| `PORT` | `8000` | HTTP port for web panel dashboard |
+| `SERVER_PUBLIC_IP` | Auto-detected | Public IPv4 address used in client subscription configurations and TLS certificates |
+| `ADMIN_PASSWORD` | Random 16-char | Master administrator password |
 
 ### Automated Setup Actions
 1. **Kernel & Network Optimization:** Enables BBR congestion control, sets TCP window scaling, and tunes UDP buffers (`/etc/sysctl.d/99-wallrose.conf`).
