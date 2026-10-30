@@ -7,7 +7,7 @@
 <p align="center">
   <a href="#license"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="License MIT"></a>
   <a href="#release"><img src="https://img.shields.io/badge/Version-v1.0.0-yellow.svg?style=flat-square" alt="Version v1.0.0"></a>
-  <a href="#tests"><img src="https://img.shields.io/badge/Tests-56%2F56%20Passed-brightgreen.svg?style=flat-square" alt="Tests"></a>
+  <a href="#tests"><img src="https://img.shields.io/badge/Tests-79%2F79%20Passed-brightgreen.svg?style=flat-square" alt="Tests"></a>
 </p>
 
 ---
@@ -101,6 +101,21 @@ SERVER_PUBLIC_IP=198.51.100.2 bash install.sh
 6. **Firewall & Masquerading:** Configures `iptables` NAT masquerading and TCP MSS clamping (1240 bytes).
 7. **Systemd Units:** Enables and starts `awg0-go`, `awg1-go`, `hysteria-server`, and `wallrose-panel`.
 8. **Master Credentials:** Stores credentials in `<INSTALL_DIR>/backend/.env` and `/root/wallrose_credentials.txt` (`chmod 600`).
+
+### Update & Reinstallation (Обновление и переустановка)
+
+To update Wall Rose or perform a clean reinstall:
+
+```bash
+# Option A: Full clean reinstallation (fresh random keys, ports, and certificates)
+curl -fsSL https://raw.githubusercontent.com/h1am7a/wall-rose/main/install.sh | sudo bash
+
+# Option B: In-place code update (preserves existing database, peers, and keys)
+cd /root/wallrose
+git pull origin main
+./venv/bin/pip install -r backend/requirements.txt
+sudo systemctl restart wallrose-panel.service
+```
 
 ---
 
@@ -235,7 +250,7 @@ python3 -m venv venv
 source venv/bin/activate  # On Windows: .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-# Run complete test suite (56 comprehensive tests)
+# Run complete test suite (79 comprehensive tests)
 # Linux / macOS:
 PYTHONPATH=. pytest tests/ -v
 # Windows PowerShell:
