@@ -105,10 +105,25 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS Middleware
+# CORS Middleware: restrict origins when credentials are enabled to prevent reflective wildcard CORS
+cors_origins = [
+    "http://localhost",
+    "http://localhost:8000",
+    "http://127.0.0.1",
+    "http://127.0.0.1:8000",
+]
+if settings.SERVER_PUBLIC_IP and settings.SERVER_PUBLIC_IP not in ("127.0.0.1", "localhost"):
+    cors_origins.extend([
+        f"http://{settings.SERVER_PUBLIC_IP}:{settings.PORT}",
+        f"https://{settings.SERVER_PUBLIC_IP}:{settings.PORT}",
+        f"http://{settings.SERVER_PUBLIC_IP}",
+        f"https://{settings.SERVER_PUBLIC_IP}",
+    ])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

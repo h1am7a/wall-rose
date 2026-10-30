@@ -338,6 +338,7 @@ def generate_mobile_landing_html(peer: Peer, subscription_url: str) -> str:
     Renders Manga Comic Tankōbon Edition mobile landing page
     with 1-click import buttons and QR code for browser visitors.
     """
+    import html
     import urllib.parse
     import re
     from app.security import format_bytes
@@ -345,7 +346,8 @@ def generate_mobile_landing_html(peer: Peer, subscription_url: str) -> str:
     rx = getattr(peer, "transfer_rx", 0) or 0
     tx = getattr(peer, "transfer_tx", 0) or 0
     total_data = format_bytes(rx + tx)
-    clean_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', peer.name).strip('_') or 'device'
+    escaped_name = html.escape(peer.name or "Device")
+    clean_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', peer.name or 'device').strip('_') or 'device'
     singbox_raw = f"{subscription_url}?format=json"
     singbox_target = urllib.parse.quote(singbox_raw, safe="")
     hy2_port_display = f"UDP {settings.HY2_PORT}"
@@ -355,7 +357,7 @@ def generate_mobile_landing_html(peer: Peer, subscription_url: str) -> str:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{peer.name} — ウォール・ローゼ (Wall Rose)</title>
+  <title>{escaped_name} — ウォール・ローゼ (Wall Rose)</title>
   <style>
     @font-face {{
       font-family: 'Komika Axis';
@@ -749,7 +751,7 @@ def generate_mobile_landing_html(peer: Peer, subscription_url: str) -> str:
       </div>
     </div>
     <div class="peer-header">
-      <h1 class="peer-title">{peer.name}</h1>
+      <h1 class="peer-title">{escaped_name}</h1>
       <span class="status-pill">ACTIVE</span>
     </div>
 

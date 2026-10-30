@@ -175,7 +175,7 @@ def get_canonical_awg_port(interface: str) -> int:
         try:
             conn = sqlite3.connect(db_path, timeout=1.0)
             cur = conn.cursor()
-            cur.execute("SELECT port FROM cores WHERE id = ?", ("awg1" if is_awg1 else "awg0",))
+            cur.execute("SELECT port FROM cores WHERE core_id = ?", ("awg1" if is_awg1 else "awg0",))
             row = cur.fetchone()
             conn.close()
             if row and row[0] and int(row[0]) > 0:
